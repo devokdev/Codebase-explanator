@@ -1,0 +1,51 @@
+# Environments
+.venv/
+venv/
+ENV/
+env/
+.env
+frontend/.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# JavaScript
+frontend/node_modules/
+frontend/dist/
+.npm
+.eslintcache
+
+# Data and Indexes
+data/repos/*
+!data/repos/.gitkeep
+data/faiss_index/*
+!data/faiss_index/.gitkeep
+data/metadata.json
+data/repo_context.json
+*.index
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
