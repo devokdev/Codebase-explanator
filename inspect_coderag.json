@@ -1,0 +1,35 @@
+[
+  {
+    "index": 0,
+    "keys": [
+      "text",
+      "meta"
+    ],
+    "sample": {
+      "text": "Q: How to convert Decimal to Double in C#? I want to assign the decimal variable \"trans\" to the double variable \"this.Opacity\".\ndecimal trans = trackBar1.Value / 5000;\nthis.Opacity = trans;\n\nWhen I build the app it gives the following error:\n\nCannot implicitly convert type decimal to double\n\n\nA: Why are you dividing by 5000? Just set the TrackBar's Minimum and Maximum values between 0 and 100 and then divide the Value by 100 for the Opacity percentage. The minimum 20 example below prevents the f",
+      "meta": "{'language': 'en', 'url': 'https://stackoverflow.com/questions/4', 'timestamp': datetime.datetime(2023, 3, 29, 0, 0), 'source': 'stackexchange', 'question_score': '794'}"
+    }
+  },
+  {
+    "index": 1,
+    "keys": [
+      "text",
+      "meta"
+    ],
+    "sample": {
+      "text": "Q: Why did the width collapse in the percentage width child element in an absolutely positioned parent on Internet Explorer 7? I have an absolutely positioned div containing several children, one of which is a relatively positioned div. When I use a percentage-based width on the child div, it collapses to 0 width on IE7, but not on Firefox or Safari.\nIf I use pixel width, it works. If the parent is relatively positioned, the percentage width on the child works.\n\n*\n\n*Is there something I'm missin",
+      "meta": "{'language': 'en', 'url': 'https://stackoverflow.com/questions/6', 'timestamp': datetime.datetime(2023, 3, 29, 0, 0), 'source': 'stackexchange', 'question_score': '319'}"
+    }
+  },
+  {
+    "index": 2,
+    "keys": [
+      "text",
+      "meta"
+    ],
+    "sample": {
+      "text": "Q: How do I calculate someone's age based on a DateTime type birthday? Given a DateTime representing a person's birthday, how do I calculate their age in years?\n\nA: My suggestion\nint age = (int) ((DateTime.Now - bday).TotalDays/365.242199);\n\nThat seems to have the year changing on the right date. (I spot tested up to age 107.)\n\nA: Another function, not by me but found on the web and refined it a bit:\npublic static int GetAge(DateTime birthDate)\n{\n    DateTime n = DateTime.Now; // To avoid a race",
+      "meta": "{'language': 'en', 'url': 'https://stackoverflow.com/questions/9', 'timestamp': datetime.datetime(2023, 3, 29, 0, 0), 'source': 'stackexchange', 'question_score': '2199'}"
+    }
+  }
+]

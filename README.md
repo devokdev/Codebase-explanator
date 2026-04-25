@@ -159,12 +159,20 @@ Answer:
 ```
 
 ## Evaluation
+ 
+ You can compare retrieval-backed answers against empty-context answers:
+ 
+ ```bash
+ python -m backend.evaluation --source "https://github.com/tiangolo/fastapi" --query "How are routes registered?"
+ ```
 
-You can compare retrieval-backed answers against empty-context answers:
+## Fine-Tuning Dataset
 
-```bash
-python -m backend.evaluation --source "https://github.com/tiangolo/fastapi" --query "How are routes registered?"
-```
+To improve technical reasoning depth, the system leverages a tailored instruction-tuning dataset mapped inside `data/fine_tune_dataset.jsonl`.
+
+- **Volume:** 2,000 unique logical sequences.
+- **Composition:** Queries extracted from authentic software architecture workflows. 
+- **Behavioral Goal:** Optimizes structured documentation output hierarchies.
 
 ## Notes
 

@@ -1,0 +1,28 @@
+[
+  {
+    "index": 0,
+    "keys": [
+      "title",
+      "text",
+      "parsed"
+    ],
+    "sample": {
+      "title": "What is the difference between UNIX TIMESTAMPS and MySQL TIMESTAMPS?",
+      "text": "In MySQL, UNIX TIMESTAMPS are stored as 32-bit integers. On the other hand MySQL TIMESTAMPS are also stored in similar manner but represented in readable YYYY-MM-DD HH:MM:SS format.\nmysql> Select UNIX_TIMESTAMP('2017-09-25 02:05:45') AS 'UNIXTIMESTAMP VALUE';\n+---------------------+\n| UNIXTIMESTAMP VALUE |\n+---------------------+\n| 1506285345          |\n+---------------------+\n1 row in set (0.00 sec)\nThe query above shows that UNIX TIMESTAMPS values are stored as 32 bit integers whose range is s",
+      "parsed": "[{'code': None, 'e': 1244, 's': 1062, 'text': 'In MySQL, UNIX TIMESTAMPS are stored as 32-bit integers. On the other hand MySQL TIMESTAMPS are also stored in similar manner but represented in readable YYYY-MM-DD HH:MM:SS format.'}, {'code': None, 'e': 1466, 's': 1244, 'text': \"mysql> Select UNIX_TIMESTAMP('2017-09-25 02:05:45') AS 'UNIXTIMESTAMP VALUE';\\n+---------------------+\\n| UNIXTIMESTAMP VALUE |\\n+---------------------+\\n| 1506285345          |\\n+---------------------+\\n1 row in set (0.00"
+    }
+  },
+  {
+    "index": 1,
+    "keys": [
+      "title",
+      "text",
+      "parsed"
+    ],
+    "sample": {
+      "title": "How do I display the current date and time in an Android application?",
+      "text": "This example demonstrates about How do I display the current date and time in an Android application\nStep 1 − Create a new project in Android Studio, go to File ⇒ New Project and fill all required details to create a new project.\nStep 2 − Add the following code to res/layout/activity_main.xml.\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<RelativeLayout xmlns:android=\"http://schemas.android.com/apk/res/android\"\n   xmlns:tools=\"http://schemas.android.com/tools\"\n   android:layout_width=\"match_parent\"\n  ",
+      "parsed": "[{'code': None, 'e': 1163, 's': 1062, 'text': 'This example demonstrates about How do I display the current date and time in an Android application'}, {'code': None, 'e': 1292, 's': 1163, 'text': 'Step 1 − Create a new project in Android Studio, go to File ⇒ New Project and fill all required details to create a new project.'}, {'code': None, 'e': 1357, 's': 1292, 'text': 'Step 2 − Add the following code to res/layout/activity_main.xml.'}, {'code': None, 'e': 1956, 's': 1357, 'text': '<?xml versi"
+    }
+  }
+]

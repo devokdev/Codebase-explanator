@@ -7,3 +7,5 @@ openai==1.58.1
 numpy==1.26.4
 esprima==4.0.1
 pydantic==2.10.4
+datasets
+google-genai
