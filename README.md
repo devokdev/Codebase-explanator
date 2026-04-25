@@ -168,11 +168,22 @@ Answer:
 
 ## Fine-Tuning Dataset
 
-To improve technical reasoning depth, the system leverages a tailored instruction-tuning dataset mapped inside `data/fine_tune_dataset.jsonl`.
+To optimize localized diagnostic generation, the platform uses a dedicated training dataset.
 
-- **Volume:** 2,000 unique logical sequences.
-- **Composition:** Queries extracted from authentic software architecture workflows. 
-- **Behavioral Goal:** Optimizes structured documentation output hierarchies.
+- **Source:** Extracted dynamically from the academic `code-rag-bench/stackoverflow-posts` benchmark mappings.
+- **Volume:** 2,000 independent software query parameters.
+- **Role:** Instructs general foundational models (`tinyllama`) to bypass generic summaries in favor of full procedural code walkthroughs.
+
+### Data Format Snapshot
+```json
+{
+  "prompt": "You are a code analysis assistant.\n\nContext:\n\n\nUser Query:\nHow to convert Decimal to Double in C#?...",
+  "completion": "Opacity requires a double, not a decimal value...",
+  "meta": {
+    "source": "CodeRAG-StackOverflow"
+  }
+}
+```
 
 ## Notes
 
