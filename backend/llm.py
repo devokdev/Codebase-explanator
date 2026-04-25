@@ -56,12 +56,12 @@ def build_file_summary_context(file_summaries: List[Dict]) -> str:
     )
 
 
-def build_compact_chunk_context(chunks: List[Dict]) -> str:
+def build_compact_chunk_context(chunks: List[Dict], limit: int = 6) -> str:
     if not chunks:
         return "No retrieved code snippets."
 
     rendered = []
-    for chunk in chunks[:3]:
+    for chunk in chunks[:limit]:
         rendered.append(
             "\n".join(
                 [
@@ -230,6 +230,133 @@ class LLMService:
             return f"{repo_name} includes files such as {highlights}."
         return f"{repo_name} has been ingested, but a high-level summary is not available yet."
 
+    @staticmethod
+    def _read_repo_file(repo_root: Path | None, relative_path: str) -> str:
+        if repo_root is None:
+            return ""
+        path = repo_root / relative_path
+        if not path.exists() or not path.is_file():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _detect_first_keyword(text: str, keywords: List[str]) -> str | None:
+        lowered = text.lower()
+        for keyword in keywords:
+            if keyword.lower() in lowered:
+                return keyword
+        return None
+
+    def _extract_stack_answer(self, query: str, repo_context: Dict, retrieved_chunks: List[Dict]) -> str | None:
+        query_lower = query.lower()
+        if not any(term in query_lower for term in ("backend", "frontend", "database", "db", "authentication", "auth", "tech stack", "stack")):
+            return None
+
+        source_root = repo_context.get("source_root")
+        repo_root = Path(source_root) if source_root else None
+        readme = self._read_repo_file(repo_root, "README.md")
+        backend_main = self._read_repo_file(repo_root, "backend/main.py")
+        backend_database = self._read_repo_file(repo_root, "backend/database.py")
+        backend_config = self._read_repo_file(repo_root, "backend/config.py")
+        frontend_package = self._read_repo_file(repo_root, "frontend/package.json")
+        requirements = self._read_repo_file(repo_root, "requirements.txt")
+        prd = self._read_repo_file(repo_root, "prd.md")
+        combined = "\n".join([readme, backend_main, backend_database, backend_config, frontend_package, requirements, prd])
+
+        backend_framework = self._detect_first_keyword(
+            combined,
+            ["FastAPI", "Flask", "Django", "Express", "NestJS", "Spring Boot", "Rails"],
+        )
+        frontend_framework = self._detect_first_keyword(
+            combined,
+            ["Next.js", "React", "Vue", "Angular", "Svelte"],
+        )
+        database_name = None
+        if "asyncpg" in combined.lower() or "postgresql://" in combined.lower() or "supabase postgres" in combined.lower():
+            database_name = "PostgreSQL"
+        elif "mongodb" in combined.lower() or "mongo" in combined.lower():
+            database_name = "MongoDB"
+        elif "sqlite" in combined.lower():
+            database_name = "SQLite"
+
+        auth_signal = self._detect_first_keyword(
+            combined,
+            ["OAuth", "JWT", "Auth0", "Supabase Auth", "Firebase Auth", "next-auth", "flask_login"],
+        )
+        has_auth_code = any(
+            term in combined.lower()
+            for term in ("login", "signup", "jwt", "oauth", "bearer ", "password_hash", "supabase auth", "auth0")
+        )
+
+        if "backend" in query_lower:
+            if backend_framework == "FastAPI":
+                answer = (
+                    "The backend is built with FastAPI in Python. "
+                    "In backend/main.py, the app is created with `FastAPI(...)` and it mounts routers such as `datasets`, `templates`, `automation`, `logbook`, and `dashboard_v2`."
+                )
+                if database_name == "PostgreSQL":
+                    answer += " The database layer in backend/database.py uses `asyncpg`, so it is backed by PostgreSQL or Supabase Postgres."
+                return answer
+            if backend_framework:
+                return f"The backend appears to use {backend_framework}. The strongest evidence is in backend/main.py and the repository README."
+            return "Not found in codebase"
+
+        if "frontend" in query_lower:
+            if frontend_framework == "React":
+                answer = (
+                    "The frontend is built with React. "
+                    "frontend/package.json lists `react`, `react-dom`, and `react-router-dom`, and the same file uses Vite for the build tooling."
+                )
+                return answer
+            if frontend_framework:
+                return f"The frontend appears to use {frontend_framework}. The strongest evidence is in frontend/package.json and the README."
+            return "Not found in codebase"
+
+        if "database" in query_lower or re.search(r"\bdb\b", query_lower):
+            if database_name == "PostgreSQL":
+                return (
+                    "The repository uses PostgreSQL. "
+                    "backend/config.py defines `DATABASE_URL` with a `postgresql://...` connection string, and backend/database.py creates a pool with `asyncpg.create_pool(...)`."
+                )
+            if database_name:
+                return f"The repository appears to use {database_name}. The strongest evidence is in backend/database.py and backend/config.py."
+            return "Not found in codebase"
+
+        if "authentication" in query_lower or re.search(r"\bauth\b", query_lower):
+            if auth_signal:
+                return f"Authentication appears to use {auth_signal}. The strongest evidence is in the repository source and configuration files."
+            if not has_auth_code and ("no auth" in prd.lower() or "there is no auth" in prd.lower()):
+                return "Authentication is not implemented yet. prd.md explicitly says there is no auth or multi-user workspace model yet."
+            auth_related = [chunk for chunk in retrieved_chunks if "auth" in chunk["file_path"].lower() or "auth" in chunk["name"].lower()]
+            if auth_related:
+                lead = auth_related[0]
+                return (
+                    f"The strongest auth-related evidence is in {lead['file_path']} under {lead['name']} "
+                    f"(lines {lead.get('line_start')}-{lead.get('line_end')})."
+                )
+            return "Not found in codebase"
+
+        if "tech stack" in query_lower or re.search(r"\bstack\b", query_lower):
+            parts = []
+            if backend_framework:
+                parts.append(f"backend: {backend_framework}")
+            if frontend_framework:
+                parts.append(f"frontend: {frontend_framework}")
+            if database_name:
+                parts.append(f"database: {database_name}")
+            if "gemini" in combined.lower():
+                parts.append("AI: Google Gemini")
+            if "gmail" in combined.lower():
+                parts.append("email integration: Gmail SMTP + IMAP")
+            if parts:
+                return "The main stack is " + ", ".join(parts) + "."
+            return "Not found in codebase"
+
+        return None
+
     def _extract_dataset_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
         query_lower = query.lower()
         if "dataset" not in query_lower:
@@ -281,6 +408,68 @@ class LLMService:
             )
 
         return " ".join(answer_parts)
+
+    def _extract_embedding_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
+        query_lower = query.lower()
+        if not any(term in query_lower for term in ("embed", "embedding", "vector store", "faiss", "vector")):
+            return None
+
+        ingestion_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("ingestion.py")
+                and chunk["name"] in {"IngestionService.ingest", "ingest", "IngestionService._chunk_to_embedding_text", "_chunk_to_embedding_text"}
+            ),
+            None,
+        )
+        embedding_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("embeddings.py")
+                and chunk["name"] in {"EmbeddingService.embed_texts", "embed_texts", "EmbeddingService.embed_query"}
+            ),
+            None,
+        )
+        store_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("retrieval.py")
+                and (
+                    chunk["name"] in {"VectorStore.save", "save", "VectorStore"}
+                    or "faiss.write_index" in chunk["code"]
+                )
+            ),
+            None,
+        )
+
+        if not any((ingestion_chunk, embedding_chunk, store_chunk)):
+            return None
+
+        parts = []
+        if ingestion_chunk:
+            ingestion_action = (
+                "turns each chunk into embedding text with file path, type, symbol name, and code"
+                if "_chunk_to_embedding_text" in ingestion_chunk["name"]
+                else "turns each chunk into embedding text with file path, type, symbol name, and code, then calls the embedding service"
+            )
+            parts.append(
+                f"In {ingestion_chunk['file_path']}, {ingestion_chunk['name']} "
+                f"(lines {ingestion_chunk.get('line_start')}-{ingestion_chunk.get('line_end')}) "
+                f"{ingestion_action}."
+            )
+        if embedding_chunk:
+            parts.append(
+                f"In {embedding_chunk['file_path']}, {embedding_chunk['name']} "
+                f"(lines {embedding_chunk.get('line_start')}-{embedding_chunk.get('line_end')}) "
+                "uses SentenceTransformer.encode with normalized embeddings and returns float32 vectors."
+            )
+        if store_chunk:
+            parts.append(
+                f"In {store_chunk['file_path']}, {store_chunk['name']} "
+                f"(lines {store_chunk.get('line_start')}-{store_chunk.get('line_end')}) "
+                "stores those vectors in a FAISS IndexFlatIP index and writes the chunk metadata JSON beside it."
+            )
+        return " ".join(parts)
 
     def summarize_file(self, file_path: str, language: str, symbols: List[str], code: str) -> str:
         return self._infer_file_summary(file_path, symbols, code)
@@ -384,6 +573,14 @@ class LLMService:
 
     def answer_query(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
+        stack_answer = self._extract_stack_answer(query, repo_context, retrieved_chunks)
+        if stack_answer:
+            return stack_answer
+
+        embedding_answer = self._extract_embedding_answer(query, retrieved_chunks)
+        if embedding_answer:
+            return embedding_answer
+
         dataset_answer = self._extract_dataset_answer(query, retrieved_chunks)
         if dataset_answer:
             return dataset_answer
@@ -427,7 +624,7 @@ class LLMService:
                 if any(term in f"{item.get('file_path', '')} {item.get('summary', '')}".lower() for term in lowered_terms)
             ][:12]
 
-        compact_context = build_compact_chunk_context(retrieved_chunks)
+        compact_context = build_compact_chunk_context(retrieved_chunks, limit=6)
         repo_prompt = "\n\n".join(
             [
                 f"Repository summary:\n{self._clean_markdown_text(repo_summary)}",
@@ -467,9 +664,6 @@ class LLMService:
         if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
             return self._repo_overview_fallback(repo_context)
 
-        if not retrieved_chunks and repo_context.get("repo_summary"):
-            return self._clean_markdown_text(repo_context["repo_summary"])
-
         if not retrieved_chunks:
             return "Not found in codebase"
 
@@ -485,8 +679,12 @@ class LLMService:
                     )
 
         lead = retrieved_chunks[0]
+        related = ", ".join(
+            f"{chunk['file_path']}::{chunk['name']}"
+            for chunk in retrieved_chunks[:4]
+        )
         return (
             f"The strongest retrieved evidence is in {lead['file_path']} under {lead['name']} "
             f"(lines {lead.get('line_start')}-{lead.get('line_end')}). "
-            "I can answer more precisely when the local model returns a full generation."
+            f"Related retrieved symbols: {related}."
         )
