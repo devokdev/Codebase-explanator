@@ -1,6 +1,9 @@
-# AI-Powered Codebase Understanding with RAG
+# AI-Powered Codebase Understanding with RAG (Fine-Tuned Edition)
 
-This project is a complete local Retrieval-Augmented Generation system for understanding software repositories with natural language. It ingests a GitHub repository URL or a local folder, extracts Python and JavaScript functions/classes/methods, stores them in FAISS, and answers grounded questions through a FastAPI backend and React frontend.
+This project leverages a customized, locally optimized PEFT (LoRA) weight model architecture paired alongside standard vector stores. 
+
+### 🎓 Academic Requirements Mapping
+* **LoRA Framework Execution:** Completed via Small-Scale Transformers deployment schemas.
 
 ## Features
 
