@@ -49,3 +49,8 @@ data/repo_context.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Heavy deployment binaries
+merged model/
+*.safetensors
+*.bin

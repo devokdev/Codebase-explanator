@@ -1,0 +1,464 @@
+{
+  "job_id": "2c78d34ddcb74a4b99ff416f04c1dddd",
+  "kind": "ingest",
+  "status": "completed",
+  "message": "Completed.",
+  "progress": 100,
+  "started_at": 1777215652.1736603,
+  "updated_at": 1777215851.1690617,
+  "result": {
+    "status": "success",
+    "source_root": "C:\\Users\\karta\\Desktop\\GenAIEndTerm\\data\\repos\\AggentAssistly",
+    "files_indexed": 89,
+    "chunks_indexed": 1185,
+    "repo_summary": "prj3bot Personal AI assistant framework with a local browser app, CLI, tool-using agent loop, and multi-channel gateway support (Telegram, Email, WhatsApp, Discord, Slack).",
+    "file_summaries": [
+      {
+        "file_path": "prj3bot/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/__main__.py",
+        "language": "python",
+        "summary": "application entrypoint"
+      },
+      {
+        "file_path": "prj3bot/agent/context.py",
+        "language": "python",
+        "summary": "context module"
+      },
+      {
+        "file_path": "prj3bot/agent/loop.py",
+        "language": "python",
+        "summary": "loop module"
+      },
+      {
+        "file_path": "prj3bot/agent/memory.py",
+        "language": "python",
+        "summary": "memory module"
+      },
+      {
+        "file_path": "prj3bot/agent/skills.py",
+        "language": "python",
+        "summary": "skills module"
+      },
+      {
+        "file_path": "prj3bot/agent/subagent.py",
+        "language": "python",
+        "summary": "subagent module"
+      },
+      {
+        "file_path": "prj3bot/agent/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/base.py",
+        "language": "python",
+        "summary": "base module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/cron.py",
+        "language": "python",
+        "summary": "cron module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/filesystem.py",
+        "language": "python",
+        "summary": "filesystem module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/google_workspace.py",
+        "language": "python",
+        "summary": "google workspace"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/mcp.py",
+        "language": "python",
+        "summary": "mcp module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/message.py",
+        "language": "python",
+        "summary": "message module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/registry.py",
+        "language": "python",
+        "summary": "registry module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/shell.py",
+        "language": "python",
+        "summary": "shell module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/spawn.py",
+        "language": "python",
+        "summary": "spawn module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/web.py",
+        "language": "python",
+        "summary": "web module"
+      },
+      {
+        "file_path": "prj3bot/agent/tools/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/bus/events.py",
+        "language": "python",
+        "summary": "events module"
+      },
+      {
+        "file_path": "prj3bot/bus/queue.py",
+        "language": "python",
+        "summary": "queue module"
+      },
+      {
+        "file_path": "prj3bot/bus/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/channels/base.py",
+        "language": "python",
+        "summary": "base module"
+      },
+      {
+        "file_path": "prj3bot/channels/discord.py",
+        "language": "python",
+        "summary": "discord module"
+      },
+      {
+        "file_path": "prj3bot/channels/email.py",
+        "language": "python",
+        "summary": "email module"
+      },
+      {
+        "file_path": "prj3bot/channels/manager.py",
+        "language": "python",
+        "summary": "manager module"
+      },
+      {
+        "file_path": "prj3bot/channels/matrix.py",
+        "language": "python",
+        "summary": "matrix module"
+      },
+      {
+        "file_path": "prj3bot/channels/mochat.py",
+        "language": "python",
+        "summary": "mochat module"
+      },
+      {
+        "file_path": "prj3bot/channels/slack.py",
+        "language": "python",
+        "summary": "slack module"
+      },
+      {
+        "file_path": "prj3bot/channels/telegram.py",
+        "language": "python",
+        "summary": "telegram module"
+      },
+      {
+        "file_path": "prj3bot/channels/whatsapp.py",
+        "language": "python",
+        "summary": "whatsapp module"
+      },
+      {
+        "file_path": "prj3bot/channels/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/cli/commands.py",
+        "language": "python",
+        "summary": "command-line entrypoint"
+      },
+      {
+        "file_path": "prj3bot/cli/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/config/loader.py",
+        "language": "python",
+        "summary": "loader module"
+      },
+      {
+        "file_path": "prj3bot/config/schema.py",
+        "language": "python",
+        "summary": "schema module"
+      },
+      {
+        "file_path": "prj3bot/config/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/cron/service.py",
+        "language": "python",
+        "summary": "service module"
+      },
+      {
+        "file_path": "prj3bot/cron/types.py",
+        "language": "python",
+        "summary": "types module"
+      },
+      {
+        "file_path": "prj3bot/cron/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/heartbeat/service.py",
+        "language": "python",
+        "summary": "service module"
+      },
+      {
+        "file_path": "prj3bot/heartbeat/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/integrations/google_workspace.py",
+        "language": "python",
+        "summary": "google workspace"
+      },
+      {
+        "file_path": "prj3bot/integrations/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/local_app/email_assistant.py",
+        "language": "python",
+        "summary": "email assistant"
+      },
+      {
+        "file_path": "prj3bot/local_app/gmail_reader.py",
+        "language": "python",
+        "summary": "gmail reader"
+      },
+      {
+        "file_path": "prj3bot/local_app/intents.py",
+        "language": "python",
+        "summary": "intents module"
+      },
+      {
+        "file_path": "prj3bot/local_app/intent_router.py",
+        "language": "python",
+        "summary": "intent router"
+      },
+      {
+        "file_path": "prj3bot/local_app/launcher.py",
+        "language": "python",
+        "summary": "command-line entrypoint"
+      },
+      {
+        "file_path": "prj3bot/local_app/runtime.py",
+        "language": "python",
+        "summary": "runtime module"
+      },
+      {
+        "file_path": "prj3bot/local_app/server.py",
+        "language": "python",
+        "summary": "server module"
+      },
+      {
+        "file_path": "prj3bot/local_app/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/local_app/static/app.js",
+        "language": "javascript",
+        "summary": "application entrypoint"
+      },
+      {
+        "file_path": "prj3bot/providers/base.py",
+        "language": "python",
+        "summary": "base module"
+      },
+      {
+        "file_path": "prj3bot/providers/custom_provider.py",
+        "language": "python",
+        "summary": "custom provider"
+      },
+      {
+        "file_path": "prj3bot/providers/litellm_provider.py",
+        "language": "python",
+        "summary": "litellm provider"
+      },
+      {
+        "file_path": "prj3bot/providers/openai_codex_provider.py",
+        "language": "python",
+        "summary": "openai codex provider"
+      },
+      {
+        "file_path": "prj3bot/providers/registry.py",
+        "language": "python",
+        "summary": "registry module"
+      },
+      {
+        "file_path": "prj3bot/providers/transcription.py",
+        "language": "python",
+        "summary": "transcription module"
+      },
+      {
+        "file_path": "prj3bot/providers/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/session/manager.py",
+        "language": "python",
+        "summary": "manager module"
+      },
+      {
+        "file_path": "prj3bot/session/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/templates/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/templates/memory/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "prj3bot/utils/helpers.py",
+        "language": "python",
+        "summary": "utility helpers"
+      },
+      {
+        "file_path": "prj3bot/utils/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "tests/test_cli_input.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_commands.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_consolidate_offset.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_context_prompt_cache.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_cron_service.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_email_channel.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_gog_command.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_google_workspace_auth.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_google_workspace_tool.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_heartbeat_service.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_local_app_email_runtime.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_local_app_intents.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_loop_save_turn.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_mail_command.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_matrix_channel.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_memory_consolidation_types.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_message_tool.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_message_tool_suppress.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_task_cancel.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_telegram_gog_command.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_telegram_mail_command.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_telegram_startup.py",
+        "language": "python",
+        "summary": "test script"
+      },
+      {
+        "file_path": "tests/test_tool_validation.py",
+        "language": "python",
+        "summary": "test script"
+      }
+    ]
+  },
+  "error": null
+}

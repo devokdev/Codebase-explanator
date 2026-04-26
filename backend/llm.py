@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List
 
 from openai import OpenAI
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
 
 PROMPT_TEMPLATE = """You are a code analysis assistant.
@@ -78,31 +80,74 @@ def build_compact_chunk_context(chunks: List[Dict], limit: int = 6) -> str:
 
 class LLMService:
     def __init__(self) -> None:
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
-        self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
-        self.client = OpenAI(
-            base_url=self.base_url,
-            api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-        )
+        self.local_model_path = os.getenv("LOCAL_MODEL_PATH", "C:/Users/karta/Desktop/GenAIEndTerm/merged model")
+        if os.path.exists(self.local_model_path):
+            print(f"Loading fine-tuned local model from {self.local_model_path}...")
+            self.use_local = True
+            self.tokenizer = AutoTokenizer.from_pretrained(self.local_model_path)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.local_model_path, 
+                torch_dtype=torch.float16
+            )
+            if torch.cuda.is_available():
+                self.model = self.model.to("cuda")
+            else:
+                self.model = self.model.to("cpu")
+        else:
+            print("Local model not found. Falling back to Ollama...")
+            self.use_local = False
+            self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+            self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
+            self.client = OpenAI(
+                base_url=self.base_url,
+                api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+            )
 
     def _chat(self, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 220) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            messages=messages,
-            extra_body={
-                "keep_alive": "15m",
-                "options": {
-                    "num_predict": max_tokens,
-                    "num_ctx": 4096,
+        if hasattr(self, 'use_local') and self.use_local:
+            prompt = ""
+            for msg in messages:
+                role = msg['role']
+                content = msg['content']
+                if role == 'system':
+                    prompt += f"<s>[INST] <<SYS>>\n{content}\n<</SYS>>\n\n"
+                elif role == 'user':
+                    if "<s>[INST]" in prompt:
+                        prompt += f"{content} [/INST]"
+                    else:
+                        prompt += f"<s>[INST] {content} [/INST]"
+                elif role == 'assistant':
+                    prompt += f" {content} </s>"
+            
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs, 
+                    max_new_tokens=max_tokens,
+                    pad_token_id=self.tokenizer.eos_token_id
+                )
+            raw_out = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+            if "[/INST]" in raw_out:
+                return raw_out.split("[/INST]")[-1].strip()
+            return raw_out.strip()
+        else:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                messages=messages,
+                extra_body={
+                    "keep_alive": "15m",
+                    "options": {
+                        "num_predict": max_tokens,
+                        "num_ctx": 4096,
+                    },
                 },
-            },
-        )
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Model returned an empty response.")
-        return content.strip()
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Model returned an empty response.")
+            return content.strip()
 
     @staticmethod
     def _collapse_whitespace(text: str) -> str:
