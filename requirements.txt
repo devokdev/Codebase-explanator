@@ -9,3 +9,5 @@ esprima==4.0.1
 pydantic==2.10.4
 datasets
 google-genai
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10

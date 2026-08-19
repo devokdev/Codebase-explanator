@@ -39,6 +39,8 @@ data/repos/*
 !data/repos/.gitkeep
 data/faiss_index/*
 !data/faiss_index/.gitkeep
+data/jobs/*
+data/jobs/
 data/metadata.json
 data/repo_context.json
 *.index

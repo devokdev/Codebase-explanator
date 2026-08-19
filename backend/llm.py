@@ -124,12 +124,15 @@ class LLMService:
                 outputs = self.model.generate(
                     **inputs, 
                     max_new_tokens=max_tokens,
-                    pad_token_id=self.tokenizer.eos_token_id
+                    do_sample=False,
+                    repetition_penalty=1.2,
+                    no_repeat_ngram_size=4,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    pad_token_id=self.tokenizer.eos_token_id,
                 )
-            raw_out = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-            if "[/INST]" in raw_out:
-                return raw_out.split("[/INST]")[-1].strip()
-            return raw_out.strip()
+            new_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+            raw_out = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+            return self._dedupe_repeated_sentences(raw_out.strip())
         else:
             response = self.client.chat.completions.create(
                 model=self.model_name,
@@ -239,6 +242,98 @@ class LLMService:
         if not cleaned:
             return answer.strip()
         return cleaned
+
+    def _dedupe_repeated_sentences(self, answer: str) -> str:
+        sentences = re.findall(r"[^.!?]+[.!?]?", answer)
+        seen = set()
+        kept = []
+        for sentence in sentences:
+            normalized = self._collapse_whitespace(sentence).lower().rstrip(".!?")
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            kept.append(sentence.strip())
+        return " ".join(kept).strip() or answer.strip()
+
+    @staticmethod
+    def _query_mentions_symbol(query: str, symbol_name: str) -> bool:
+        query_lower = query.lower()
+        symbol_lower = symbol_name.lower()
+        short_name = symbol_lower.split(".")[-1].split("#")[0]
+        return symbol_lower in query_lower or short_name in query_lower
+
+    def _extract_direct_symbol_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
+        symbol_words = ("def ", "function", "method", "class", "where is", "what is", "explain")
+        if not any(word in query.lower() for word in symbol_words):
+            return None
+
+        matches = [
+            chunk
+            for chunk in retrieved_chunks
+            if self._query_mentions_symbol(query, chunk.get("name", ""))
+        ]
+        if not matches:
+            return None
+
+        lead = matches[0]
+        name = lead.get("name", "the symbol")
+        file_path = lead.get("file_path", "unknown file")
+        line_start = lead.get("line_start", "?")
+        line_end = lead.get("line_end", "?")
+        code = lead.get("code", "")
+
+        details = []
+        if "train_metrics.json" in code:
+            details.append("reads `train_metrics.json`")
+        if "trainer_state.json" in code:
+            details.append("reads `trainer_state.json`")
+        if "eval_loss" in code:
+            details.append("extracts the latest eval metrics")
+        if "return summary" in code:
+            details.append("returns a summary dictionary")
+
+        if details:
+            purpose = ", ".join(details[:-1])
+            purpose = f"{purpose}, and {details[-1]}" if len(details) > 1 else details[0]
+            return (
+                f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}. "
+                f"It {purpose}."
+            )
+
+        first_code_line = next((line.strip() for line in code.splitlines()[1:] if line.strip()), "")
+        if first_code_line:
+            return (
+                f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}. "
+                f"The first retrieved implementation detail is `{first_code_line[:140]}`."
+            )
+        return f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}."
+
+    def _grounded_retrieval_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
+        repo_context = repo_context or {}
+
+        if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
+            return self._repo_overview_fallback(repo_context)
+
+        if not retrieved_chunks:
+            return "Not found in codebase"
+
+        direct_symbol = self._extract_direct_symbol_answer(query, retrieved_chunks)
+        if direct_symbol:
+            return direct_symbol
+
+        lead = retrieved_chunks[0]
+        related = [
+            f"`{chunk['file_path']}` / `{chunk['name']}`"
+            for chunk in retrieved_chunks[1:3]
+        ]
+        answer = (
+            f"The closest match I found is `{lead['name']}` in `{lead['file_path']}` "
+            f"(lines {lead.get('line_start')}-{lead.get('line_end')})."
+        )
+        if related:
+            answer += f" Related retrieved symbols are {', '.join(related)}."
+        answer += " If this does not match the question, the exact answer was not found in the indexed codebase."
+        return answer
 
     @staticmethod
     def _is_repo_overview_query(query: str) -> bool:
@@ -630,7 +725,13 @@ class LLMService:
         if dataset_answer:
             return dataset_answer
 
+        direct_symbol_answer = self._extract_direct_symbol_answer(query, retrieved_chunks)
+        if direct_symbol_answer:
+            return direct_symbol_answer
+
         if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
+            if getattr(self, "use_local", False):
+                return self._repo_overview_fallback(repo_context)
             try:
                 return self._chat(
                     [
@@ -678,6 +779,9 @@ class LLMService:
                 f"Question: {query}",
             ]
         )
+
+        if getattr(self, "use_local", False):
+            return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
 
         try:
             return self._sanitize_answer_output(

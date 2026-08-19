@@ -17,7 +17,7 @@ class VectorStore:
         self.index: faiss.IndexFlatIP | None = None
         self.metadata: List[Dict] = []
 
-    def save(self, embeddings: np.ndarray, metadata: List[Dict]) -> None:
+    def save(self, embeddings: np.ndarray, metadata: List[Dict], repo_source: str = "") -> None:
         ensure_directory(self.index_path.parent)
         dimension = embeddings.shape[1]
         index = faiss.IndexFlatIP(dimension)
@@ -27,11 +27,57 @@ class VectorStore:
         self.index = index
         self.metadata = metadata
 
+        # Persist chunks to PostgreSQL relational store
+        try:
+            from .database import SessionLocal, CodeChunkModel, init_db
+            init_db()
+            db = SessionLocal()
+            # Clear old records for clean sync
+            db.query(CodeChunkModel).delete()
+            for idx, item in enumerate(metadata):
+                record = CodeChunkModel(
+                    chunk_id=idx,
+                    repo_source=repo_source,
+                    file_path=item.get("file_path", ""),
+                    name=item.get("name", ""),
+                    chunk_type=item.get("type", "snippet"),
+                    line_start=item.get("line_start"),
+                    line_end=item.get("line_end"),
+                    code=item.get("code", "")
+                )
+                db.add(record)
+            db.commit()
+            db.close()
+        except Exception as e:
+            print(f"PostgreSQL sync skipped/noted: {e}")
+
     def load(self) -> None:
         if not self.index_path.exists():
             raise FileNotFoundError("FAISS index not found. Run ingestion first.")
         self.index = faiss.read_index(str(self.index_path))
-        self.metadata = read_json(self.metadata_path, default=[])
+        
+        # Try to hydrate from PostgreSQL first; fallback to JSON
+        try:
+            from .database import SessionLocal, CodeChunkModel
+            db = SessionLocal()
+            records = db.query(CodeChunkModel).order_by(CodeChunkModel.chunk_id).all()
+            if records:
+                self.metadata = [
+                    {
+                        "file_path": r.file_path,
+                        "name": r.name,
+                        "type": r.chunk_type,
+                        "line_start": r.line_start,
+                        "line_end": r.line_end,
+                        "code": r.code
+                    }
+                    for r in records
+                ]
+            else:
+                self.metadata = read_json(self.metadata_path, default=[])
+            db.close()
+        except Exception:
+            self.metadata = read_json(self.metadata_path, default=[])
 
     def is_ready(self) -> bool:
         return self.index_path.exists() and self.metadata_path.exists()
