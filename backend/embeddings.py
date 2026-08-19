@@ -35,8 +35,12 @@ class EmbeddingService:
     def _cache_key(text: str) -> str:
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    def embed_texts(self, texts: List[str]) -> np.ndarray:
-        uncached: List[Tuple[int, str]] = []
+    def embed_texts(self, texts: List[str], batch_size: int = 16) -> np.ndarray:
+        import gc
+        import torch
+
+        uncached_indices: List[int] = []
+        uncached_texts: List[str] = []
         result_vectors: List[np.ndarray | None] = [None] * len(texts)
 
         for index, text in enumerate(texts):
@@ -44,21 +48,32 @@ class EmbeddingService:
             if key in self._cache:
                 result_vectors[index] = self._cache[key]
             else:
-                uncached.append((index, text))
+                uncached_indices.append(index)
+                uncached_texts.append(text)
 
-        if uncached:
-            embeddings = self.model.encode(
-                [text for _, text in uncached],
-                normalize_embeddings=True,
-                show_progress_bar=False,
-                convert_to_numpy=True,
-            )
-            for (index, text), vector in zip(uncached, embeddings):
-                key = self._cache_key(text)
-                self._cache[key] = vector.astype("float32")
-                result_vectors[index] = self._cache[key]
+        if uncached_texts:
+            with torch.no_grad():
+                for start_idx in range(0, len(uncached_texts), batch_size):
+                    end_idx = start_idx + batch_size
+                    batch_texts = uncached_texts[start_idx:end_idx]
+                    batch_indices = uncached_indices[start_idx:end_idx]
+
+                    embeddings = self.model.encode(
+                        batch_texts,
+                        normalize_embeddings=True,
+                        show_progress_bar=False,
+                        convert_to_numpy=True,
+                        batch_size=batch_size,
+                    )
+                    for idx, vector in zip(batch_indices, embeddings):
+                        key = self._cache_key(texts[idx])
+                        self._cache[key] = vector.astype("float32")
+                        result_vectors[idx] = self._cache[key]
+
+                    # Trigger memory cleanup between batches
+                    gc.collect()
 
         return np.vstack(result_vectors).astype("float32")
 
     def embed_query(self, query: str) -> np.ndarray:
-        return self.embed_texts([query])[0]
+        return self.embed_texts([query], batch_size=1)[0]
