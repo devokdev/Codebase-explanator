@@ -228,9 +228,6 @@ function App() {
             </svg>
             GitHub
           </a>
-          <div className="nav-pill-btn" style={{ cursor: 'default' }}>
-            Hybrid FAISS + PG
-          </div>
         </div>
       </header>
 
