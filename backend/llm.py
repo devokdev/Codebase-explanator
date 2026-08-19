@@ -814,6 +814,10 @@ class LLMService:
 
     def answer_query(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
+
+        if self._is_execution_query(query):
+            return self._execution_query_answer(query, repo_context, retrieved_chunks)
+
         stack_answer = self._extract_stack_answer(query, repo_context, retrieved_chunks)
         if stack_answer:
             return stack_answer
