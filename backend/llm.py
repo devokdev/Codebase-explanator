@@ -863,103 +863,42 @@ class LLMService:
 
     def answer_query(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
-
-        if self._is_execution_query(query):
-            return self._execution_query_answer(query, repo_context, retrieved_chunks)
-
-        stack_answer = self._extract_stack_answer(query, repo_context, retrieved_chunks)
-        if stack_answer:
-            return stack_answer
-
-        embedding_answer = self._extract_embedding_answer(query, retrieved_chunks)
-        if embedding_answer:
-            return embedding_answer
-
-        dataset_answer = self._extract_dataset_answer(query, retrieved_chunks)
-        if dataset_answer:
-            return dataset_answer
-
-        direct_symbol_answer = self._extract_direct_symbol_answer(query, retrieved_chunks)
-        if direct_symbol_answer:
-            return direct_symbol_answer
-
-        if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
-            if getattr(self, "use_local", False):
-                return self._repo_overview_fallback(repo_context)
-            try:
-                return self._chat(
-                    [
-                        {
-                            "role": "system",
-                            "content": "You explain repositories clearly and concretely from provided evidence only.",
-                        },
-                        {
-                            "role": "user",
-                            "content": "\n\n".join(
-                                [
-                                    f"Repository overview:\n{self._clean_markdown_text(repo_context.get('repo_summary', ''))}",
-                                    f"File summaries:\n{build_file_summary_context(repo_context.get('file_summaries', [])[:16])}",
-                                    "Answer the question in 2 to 4 sentences: what is this repository about?",
-                                ]
-                            ),
-                        },
-                    ],
-                    temperature=0.2,
-                )
-            except Exception as e:
-                print(f"Ollama API error: {e}")
-                return self._repo_overview_fallback(repo_context)
-
-        repo_summary = repo_context.get("repo_summary", "No repository overview available.")
+        repo_summary = repo_context.get("repo_summary", "No summary available.")
         file_summaries = repo_context.get("file_summaries", [])
-        relevant_files = sorted({chunk["file_path"] for chunk in retrieved_chunks})
-        relevant_file_summaries = [
-            item for item in file_summaries if item.get("file_path") in relevant_files
-        ]
-        if not relevant_file_summaries:
-            lowered_terms = {term.lower() for term in query.split() if len(term) > 2}
-            relevant_file_summaries = [
-                item
-                for item in file_summaries
-                if any(term in f"{item.get('file_path', '')} {item.get('summary', '')}".lower() for term in lowered_terms)
-            ][:12]
-
-        compact_context = build_compact_chunk_context(retrieved_chunks, limit=6)
-        repo_prompt = "\n\n".join(
-            [
-                f"Repository summary:\n{self._clean_markdown_text(repo_summary)}",
-                f"Relevant files:\n{build_file_summary_context(relevant_file_summaries[:10])}",
-                f"Retrieved evidence:\n{compact_context}",
-                f"Question: {query}",
-            ]
+        
+        # Build clean retrieved context
+        chunk_snippets = []
+        for c in retrieved_chunks[:5]:
+            snippet_text = f"File: {c.get('file_path')}\nSymbol: {c.get('name')}\nCode:\n{c.get('code', '')[:1200]}"
+            chunk_snippets.append(snippet_text)
+        
+        context_block = "\n\n---\n\n".join(chunk_snippets) if chunk_snippets else "No specific code chunks retrieved."
+        
+        system_prompt = (
+            "You are CodebaseAI, an intelligent, helpful code intelligence assistant. "
+            "Your task is to answer the user's question naturally, accurately, and conversationally. "
+            "Use the provided codebase context and evidence when answering technical questions. "
+            "If the user says casual remarks or general greetings (like 'cool', 'hello', 'thanks'), respond conversationally in a friendly manner. "
+            "When explaining code, explain what it does in clear English, mention relevant file paths and functions, and give insightful explanations. "
+            "Do not start your answer with labels like 'ASSISTANT:' or 'Answer:'."
         )
 
-        if getattr(self, "use_local", False):
-            return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
+        user_content = (
+            f"Repository Overview: {self._clean_markdown_text(repo_summary)}\n\n"
+            f"Retrieved Code Evidence:\n{context_block}\n\n"
+            f"User Question: {query}"
+        )
 
         try:
-            return self._sanitize_answer_output(
-                self._chat(
+            raw_response = self._chat(
                 [
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a grounded repository analyst. "
-                            "Answer the question directly in 2 to 5 sentences. "
-                            "Start with the answer, not with headings. "
-                            "Mention the most relevant file names. "
-                            "Do not dump raw context, labels, or prompt text."
-                        ),
-                    },
-                    {"role": "user", "content": repo_prompt},
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_content},
                 ],
-                temperature=0.2,
-                max_tokens=180,
+                temperature=0.3,
+                max_tokens=350,
             )
-            )
+            return self._sanitize_answer_output(raw_response)
         except Exception as e:
-            print(f"Ollama API error: {e}")
-            return self._fallback_answer(query, retrieved_chunks, repo_context)
-
-    def _fallback_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
-        return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
+            print(f"LLM generation failed: {e}")
+            return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
