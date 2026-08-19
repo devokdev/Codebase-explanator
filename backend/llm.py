@@ -154,19 +154,22 @@ class LLMService:
             raw_out = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
             return self._dedupe_repeated_sentences(raw_out.strip())
         else:
-            response = self.client.chat.completions.create(
-                model=self.model_name,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                messages=messages,
-                extra_body={
+            kwargs = {
+                "model": self.model_name,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": messages,
+            }
+            if "127.0.0.1" in self.base_url or "localhost" in self.base_url or "ollama" in self.base_url:
+                kwargs["extra_body"] = {
                     "keep_alive": "15m",
                     "options": {
                         "num_predict": max_tokens,
                         "num_ctx": 4096,
                     },
-                },
-            )
+                }
+
+            response = self.client.chat.completions.create(**kwargs)
             content = response.choices[0].message.content
             if not content:
                 raise ValueError("Model returned an empty response.")
