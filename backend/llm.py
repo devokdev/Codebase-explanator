@@ -364,6 +364,9 @@ class LLMService:
     def _grounded_retrieval_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
 
+        if self._is_execution_query(query):
+            return self._execution_query_answer(query, repo_context, retrieved_chunks)
+
         if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
             return self._repo_overview_fallback(repo_context)
 
@@ -385,6 +388,54 @@ class LLMService:
         )
         return response
 
+    def _is_execution_query(self, query: str) -> bool:
+        lowered = query.lower()
+        patterns = (
+            "how to run",
+            "how do i run",
+            "how to execute",
+            "how to start",
+            "how to install",
+            "how to train",
+            "how to sample",
+            "run the project",
+            "run this project",
+            "start the project",
+            "running the project",
+        )
+        return any(p in lowered for p in patterns)
+
+    def _execution_query_answer(self, query: str, repo_context: Dict, retrieved_chunks: List[Dict]) -> str:
+        source_root = repo_context.get("source_root")
+        repo_root = Path(source_root) if source_root else None
+        readme = self._read_repo_file(repo_root, "README.md")
+        
+        # Search for commands or quickstart in README
+        code_blocks = re.findall(r"```(?:bash|sh|python)?\s*(.*?)```", readme, re.DOTALL)
+        commands = []
+        for block in code_blocks:
+            for line in block.strip().splitlines():
+                clean_l = line.strip()
+                if clean_l and not clean_l.startswith("#") and any(clean_l.startswith(cmd) for cmd in ("python", "pip", "npm", "uvicorn", "docker", "node")):
+                    commands.append(clean_l)
+
+        # Look for entrypoint files
+        entrypoints = [chunk["file_path"] for chunk in retrieved_chunks if any(chunk["file_path"].endswith(ep) for ep in ("train.py", "sample.py", "main.py", "app.py", "index.js", "package.json"))]
+        unique_eps = sorted(set(entrypoints))
+
+        if commands:
+            cmd_text = "\n".join(f"- `{cmd}`" for cmd in commands[:4])
+            return (
+                f"To run this project, the primary commands defined in the repository documentation are:\n\n"
+                f"{cmd_text}\n\n"
+                f"The main execution entrypoints in the codebase are: {', '.join(f'`{ep}`' for ep in unique_eps[:3]) or 'the root scripts'}."
+            )
+        elif unique_eps:
+            return (
+                f"This project is executed through its primary script entrypoints:\n\n"
+                f"- Run `{unique_eps[0]}` using Python (e.g. `python {unique_eps[0]}`)\n\n"
+                f"Refer to the retrieved source files in the right-hand panel for configuration flags and parameters."
+            )
     @staticmethod
     def _is_repo_overview_query(query: str) -> bool:
         lowered = query.lower()
