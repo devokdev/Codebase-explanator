@@ -26,5 +26,5 @@ COPY backend/ ./backend/
 # Expose FastAPI port
 EXPOSE 8000
 
-# Run FastAPI via uvicorn
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI via uvicorn (Render assigns $PORT dynamically)
+CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
