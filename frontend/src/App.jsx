@@ -265,22 +265,22 @@ function App() {
           <button
             type="button"
             className="nav-pill-btn"
-            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/tiangolo/fastapi' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
+            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/karpathy/nanoGPT' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
             onClick={() => {
-              setSource('https://github.com/tiangolo/fastapi');
+              setSource('https://github.com/karpathy/nanoGPT');
             }}
           >
-            ⚡ FastAPI (Python)
+            ⚡ karpathy/nanoGPT (62k ★)
           </button>
           <button
             type="button"
             className="nav-pill-btn"
-            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/expressjs/express' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
+            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/karpathy/minGPT' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
             onClick={() => {
-              setSource('https://github.com/expressjs/express');
+              setSource('https://github.com/karpathy/minGPT');
             }}
           >
-            ⚡ Express.js (Node)
+            ⚡ karpathy/minGPT (25k ★)
           </button>
           <button
             type="button"
