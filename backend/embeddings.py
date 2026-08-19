@@ -18,15 +18,19 @@ MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v
 class EmbeddingService:
     def __init__(self, model_name: str = MODEL_NAME) -> None:
         self.model_name = model_name
-        local_only = os.getenv("EMBEDDING_MODEL_LOCAL_ONLY", "true").lower() not in {"0", "false", "no"}
-        try:
-            self.model = SentenceTransformer(model_name, local_files_only=local_only)
-        except Exception as exc:
-            raise RuntimeError(
-                "Embedding model is not available locally. "
-                "Set EMBEDDING_MODEL to a local path or pre-download the model before starting the app."
-            ) from exc
+        self._model: SentenceTransformer | None = None
         self._cache: Dict[str, np.ndarray] = {}
+
+    @property
+    def model(self) -> SentenceTransformer:
+        if self._model is None:
+            local_only = os.getenv("EMBEDDING_MODEL_LOCAL_ONLY", "false").lower() not in {"0", "false", "no"}
+            try:
+                self._model = SentenceTransformer(self.model_name, local_files_only=local_only)
+            except Exception:
+                # Fallback to online download if local files are missing
+                self._model = SentenceTransformer(self.model_name, local_files_only=False)
+        return self._model
 
     @staticmethod
     def _cache_key(text: str) -> str:
