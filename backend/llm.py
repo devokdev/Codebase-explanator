@@ -398,6 +398,11 @@ class LLMService:
             "how to install",
             "how to train",
             "how to sample",
+            "how is it deployed",
+            "how to deploy",
+            "deployment",
+            "how do i deploy",
+            "docker",
             "run the project",
             "run this project",
             "start the project",
@@ -409,7 +414,26 @@ class LLMService:
         source_root = repo_context.get("source_root")
         repo_root = Path(source_root) if source_root else None
         readme = self._read_repo_file(repo_root, "README.md")
+        dockerfile = self._read_repo_file(repo_root, "Dockerfile") or self._read_repo_file(repo_root, "Dockerfile.backend")
+        docker_compose = self._read_repo_file(repo_root, "docker-compose.yml")
         
+        # Check if user asked about deployment
+        if any(term in query.lower() for term in ("deploy", "deployment", "docker", "production", "hosted")):
+            if docker_compose or dockerfile:
+                parts = []
+                if docker_compose:
+                    parts.append("Docker Compose multi-service architecture")
+                if dockerfile:
+                    parts.append("containerized Docker image build")
+                return (
+                    f"This repository is configured for deployment using **{', '.join(parts) or 'Docker'}**.\n\n"
+                    f"- Build and start services locally with: `docker compose up --build -d`\n"
+                    f"- Or deploy the Docker container to platforms like Render, Railway, or AWS.\n\n"
+                    f"Check `Dockerfile` or `docker-compose.yml` in the repository root for detailed container service definitions."
+                )
+            elif "vercel" in readme.lower() or "render" in readme.lower():
+                return "This repository is deployed as a web service / static web application as detailed in the README deployment guidelines."
+
         # Search for commands or quickstart in README
         code_blocks = re.findall(r"```(?:bash|sh|python)?\s*(.*?)```", readme, re.DOTALL)
         commands = []
@@ -436,6 +460,8 @@ class LLMService:
                 f"- Run `{unique_eps[0]}` using Python (e.g. `python {unique_eps[0]}`)\n\n"
                 f"Refer to the retrieved source files in the right-hand panel for configuration flags and parameters."
             )
+        return "To run this project, execute the main entrypoint file (such as `train.py`, `main.py`, or `npm start`) as documented in the repository root."
+
     @staticmethod
     def _is_repo_overview_query(query: str) -> bool:
         lowered = query.lower()
