@@ -123,7 +123,23 @@ class LLMService:
                     api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
                 )
 
-    def _chat(self, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 220) -> str:
+    def _get_client(self):
+        openai_key = os.getenv("OPENAI_API_KEY")
+        groq_key = os.getenv("GROQ_API_KEY")
+        gemini_key = os.getenv("GEMINI_API_KEY")
+
+        if groq_key:
+            return OpenAI(base_url="https://api.groq.com/openai/v1", api_key=groq_key.strip()), os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+        elif openai_key:
+            return OpenAI(base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"), api_key=openai_key.strip()), os.getenv("LLM_MODEL", "gpt-4o-mini")
+        elif gemini_key:
+            return OpenAI(base_url="https://generativelanguage.googleapis.com/v1beta/openai/", api_key=gemini_key.strip()), os.getenv("LLM_MODEL", "gemini-1.5-flash")
+        else:
+            base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+            model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
+            return OpenAI(base_url=base_url, api_key=os.getenv("OLLAMA_API_KEY", "ollama")), model_name
+
+    def _chat(self, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 250) -> str:
         if hasattr(self, 'use_local') and self.use_local:
             prompt = ""
             for msg in messages:
@@ -154,13 +170,14 @@ class LLMService:
             raw_out = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
             return self._dedupe_repeated_sentences(raw_out.strip())
         else:
+            client, model_name = self._get_client()
             kwargs = {
-                "model": self.model_name,
+                "model": model_name,
                 "temperature": temperature,
                 "max_tokens": max_tokens,
                 "messages": messages,
             }
-            if "127.0.0.1" in self.base_url or "localhost" in self.base_url or "ollama" in self.base_url:
+            if "127.0.0.1" in str(client.base_url) or "localhost" in str(client.base_url) or "ollama" in str(client.base_url):
                 kwargs["extra_body"] = {
                     "keep_alive": "15m",
                     "options": {
@@ -169,11 +186,15 @@ class LLMService:
                     },
                 }
 
-            response = self.client.chat.completions.create(**kwargs)
-            content = response.choices[0].message.content
-            if not content:
-                raise ValueError("Model returned an empty response.")
-            return content.strip()
+            try:
+                response = client.chat.completions.create(**kwargs)
+                content = response.choices[0].message.content
+                if not content:
+                    raise ValueError("Model returned an empty response.")
+                return content.strip()
+            except Exception as e:
+                print(f"[LLM ERROR in _chat]: {type(e).__name__}: {e}")
+                raise
 
     @staticmethod
     def _collapse_whitespace(text: str) -> str:
