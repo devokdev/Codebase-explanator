@@ -836,32 +836,4 @@ class LLMService:
             return self._fallback_answer(query, retrieved_chunks, repo_context)
 
     def _fallback_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
-        repo_context = repo_context or {}
-
-        if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
-            return self._repo_overview_fallback(repo_context)
-
-        if not retrieved_chunks:
-            return "Not found in codebase"
-
-        query_lower = query.lower()
-        if "dataset" in query_lower:
-            for chunk in retrieved_chunks:
-                code_lower = chunk["code"].lower()
-                if "dataset" in code_lower or "rows.append" in code_lower or "from_dict" in code_lower:
-                    return (
-                        f"The dataset-related logic is in {chunk['file_path']} inside {chunk['name']} "
-                        f"(lines {chunk.get('line_start')}-{chunk.get('line_end')}). "
-                        "This is the strongest retrieved evidence for how the training data is prepared."
-                    )
-
-        lead = retrieved_chunks[0]
-        related = ", ".join(
-            f"{chunk['file_path']}::{chunk['name']}"
-            for chunk in retrieved_chunks[:4]
-        )
-        return (
-            f"The strongest retrieved evidence is in {lead['file_path']} under {lead['name']} "
-            f"(lines {lead.get('line_start')}-{lead.get('line_end')}). "
-            f"Related retrieved symbols: {related}."
-        )
+        return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
