@@ -309,35 +309,57 @@ class LLMService:
         return f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}."
 
     def _summarize_chunk_action(self, chunk: Dict) -> str:
-        """Extract a readable natural language sentence describing what the code chunk does."""
+        """Extract a dynamic, 100% grounded natural language explanation from the actual retrieved code."""
         code = chunk.get("code", "")
         name = chunk.get("name", "This component")
+        chunk_type = chunk.get("type", "snippet")
+
+        # 1. Extract genuine docstring from the code if present
         doc_match = re.search(r'"""(.*?)"""', code, re.DOTALL) or re.search(r"'''(.*?)'''", code, re.DOTALL)
         if doc_match:
-            doc = doc_match.group(1).strip().replace("\n", " ")
-            if len(doc) > 10:
-                return doc.split(".")[0] + "."
+            doc_text = doc_match.group(1).strip().replace("\n", " ")
+            cleaned_doc = re.sub(r"\s+", " ", doc_text).split(".")[0].strip()
+            if len(cleaned_doc) > 12:
+                return f"{name} is documented as: \"{cleaned_doc}\"."
 
-        # Infer purpose from symbols and comments
-        code_lower = code.lower()
-        if "c_attn" in code_lower or "self.c_attn" in code_lower:
-            return f"{name} computes multi-head key, query, and value projections with causal attention masking for token sequence prediction."
-        if "cross_entropy" in code_lower or "loss" in code_lower and "targets" in code_lower:
-            return f"{name} calculates the training loss between model logits and ground-truth target tokens."
-        if "adamw" in code_lower or "weight_decay" in code_lower:
-            return f"{name} splits parameters into decayed and non-decayed groups and initializes the AdamW optimizer."
-        if "route" in code_lower or "add_url_rule" in code_lower:
-            return f"{name} registers URL endpoints and binds request handler functions to HTTP methods."
-        if "checkpoint" in code_lower or "torch.save" in code_lower:
-            return f"{name} periodically persists training checkpoints and optimizer state to disk."
-
-        # Generic clean explanation
+        # 2. Extract function parameters & operations directly from code lines
         lines = [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("#")]
-        if lines:
-            first_line = lines[0]
-            if len(lines) > 1:
-                return f"{name} executes `{first_line}` to handle the core logic for this module."
-        return f"{name} implements the core logic for this section."
+        if not lines:
+            return f"{name} is defined as a {chunk_type} in this module."
+
+        header_line = lines[0]
+        # Inspect inner code operations
+        inner_lines = [l for l in lines[1:8] if not l.startswith('"""') and not l.startswith("'''")]
+        
+        # Look for returns or key statements
+        return_stmt = next((l for l in inner_lines if l.startswith("return ")), None)
+        calc_stmt = next((l for l in inner_lines if "=" in l and not l.startswith("def ")), None)
+
+        explanation_parts = []
+        if chunk_type == "class":
+            methods = re.findall(r"def\s+([A-Za-z0-9_]+)\s*\(", code)
+            method_list = [m for m in methods if not m.startswith("__")][:4]
+            if method_list:
+                explanation_parts.append(f"It encapsulates the core {name} structure, providing methods like `{', '.join(method_list)}`.")
+            else:
+                explanation_parts.append(f"It defines the `{name}` class structure for the module.")
+        elif "def " in header_line:
+            # Extract arguments
+            params_match = re.search(r"def\s+[A-Za-z0-9_]+\s*\((.*?)\)", header_line)
+            params = params_match.group(1).strip() if params_match else ""
+            if params and params != "self":
+                clean_params = ", ".join([p.split(":")[0].strip() for p in params.split(",") if p.strip() and p.strip() != "self"][:4])
+                explanation_parts.append(f"It takes `{clean_params}` as input parameters to process.")
+            
+            if calc_stmt:
+                explanation_parts.append(f"The implementation performs operations such as `{calc_stmt[:90]}`.")
+            if return_stmt:
+                explanation_parts.append(f"It completes by executing `{return_stmt[:80]}`.")
+
+        if explanation_parts:
+            return " ".join(explanation_parts)
+
+        return f"{name} handles `{header_line[:100]}` within the codebase workflow."
 
     def _grounded_retrieval_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
