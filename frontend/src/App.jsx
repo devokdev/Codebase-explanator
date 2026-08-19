@@ -258,6 +258,42 @@ function App() {
           </button>
         </form>
 
+        <div style={{ marginTop: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-subtle)' }}>
+            Demo Presets:
+          </span>
+          <button
+            type="button"
+            className="nav-pill-btn"
+            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/tiangolo/fastapi' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
+            onClick={() => {
+              setSource('https://github.com/tiangolo/fastapi');
+            }}
+          >
+            ⚡ FastAPI (Python)
+          </button>
+          <button
+            type="button"
+            className="nav-pill-btn"
+            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/expressjs/express' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
+            onClick={() => {
+              setSource('https://github.com/expressjs/express');
+            }}
+          >
+            ⚡ Express.js (Node)
+          </button>
+          <button
+            type="button"
+            className="nav-pill-btn"
+            style={{ padding: '0.35rem 0.85rem', fontSize: '0.8rem', cursor: 'pointer', background: source === 'https://github.com/pallets/flask' ? 'var(--terracotta-tint)' : 'var(--surface-white)' }}
+            onClick={() => {
+              setSource('https://github.com/pallets/flask');
+            }}
+          >
+            ⚡ Flask (Python)
+          </button>
+        </div>
+
         {loadingIngest && (
           <div className="neo-progress-banner">
             <div className="progress-header">
