@@ -44,10 +44,17 @@ ingestion_service = IngestionService(
 )
 
 app = FastAPI(title="Codebase Understanding RAG API", version="1.0.0")
+
+raw_origins = os.getenv("CORS_ALLOW_ORIGINS", "*")
+if raw_origins == "*":
+    allow_origins = ["*"]
+else:
+    allow_origins = [orig.strip() for orig in raw_origins.split(",") if orig.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ALLOW_ORIGINS", "*").split(","),
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
