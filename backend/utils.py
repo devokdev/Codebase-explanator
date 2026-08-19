@@ -21,6 +21,8 @@ IGNORE_DIRS = {
     "venv",
     ".idea",
     ".pytest_cache",
+    "faiss_index",
+    "jobs",
 }
 SUPPORTED_EXTENSIONS = {
     ".py": "python",
@@ -130,14 +132,17 @@ def resolve_source_path(source: str, repos_root: Path) -> Path:
     return source_path
 
 
-def should_skip_dir(path: Path) -> bool:
+def should_skip_dir(path: Path, root: Path) -> bool:
+    relative = path.resolve().relative_to(root.resolve()).as_posix()
+    if relative == "data/repos":
+        return True
     return path.name in IGNORE_DIRS
 
 
 def iter_code_files(root: Path) -> Iterable[Path]:
     for current_root, dirnames, filenames in os.walk(root):
         current_path = Path(current_root)
-        dirnames[:] = [d for d in dirnames if not should_skip_dir(current_path / d)]
+        dirnames[:] = [d for d in dirnames if not should_skip_dir(current_path / d, root)]
 
         for filename in filenames:
             file_path = current_path / filename

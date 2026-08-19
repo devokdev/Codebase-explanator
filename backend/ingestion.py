@@ -88,7 +88,7 @@ class IngestionService:
         texts = [self._chunk_to_embedding_text(chunk) for chunk in all_chunks]
         embeddings = self.embedding_service.embed_texts(texts)
         report("Saving vector index...", 70)
-        self.vector_store.save(embeddings, all_chunks)
+        self.vector_store.save(embeddings, all_chunks, repo_source=str(source_root))
         report(f"Generating repository summary and {len(file_records)} file summaries with the local model...", 80)
         summary_bundle = self.llm_service.summarize_repository_bundle(
             repo_name=source_root.name,

@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ensure_directory(BASE_DIR / "data")
 REPOS_DIR = ensure_directory(DATA_DIR / "repos")
 FAISS_DIR = ensure_directory(DATA_DIR / "faiss_index")
+JOBS_DIR = ensure_directory(DATA_DIR / "jobs")
 INDEX_PATH = FAISS_DIR / "code.index"
 METADATA_PATH = DATA_DIR / "metadata.json"
 REPO_CONTEXT_PATH = DATA_DIR / "repo_context.json"
@@ -31,7 +32,7 @@ REPO_CONTEXT_PATH = DATA_DIR / "repo_context.json"
 embedding_service = EmbeddingService()
 vector_store = VectorStore(INDEX_PATH, METADATA_PATH)
 llm_service = LLMService()
-job_store = JobStore()
+job_store = JobStore(JOBS_DIR)
 ingestion_service = IngestionService(
     REPOS_DIR,
     INDEX_PATH,
@@ -118,7 +119,7 @@ def query_codebase(payload: QueryRequest) -> QueryResponse:
             raise FileNotFoundError("Index not found. Please ingest a repository first.")
 
         query_embedding = embedding_service.embed_query(payload.query)
-        search_results = vector_store.hybrid_search(payload.query, query_embedding, top_k=min(payload.top_k, 3))
+        search_results = vector_store.hybrid_search(payload.query, query_embedding, top_k=payload.top_k)
         chunks = [result[1] for result in search_results]
         repo_context = read_json(REPO_CONTEXT_PATH, default={})
         answer = llm_service.answer_query(payload.query, chunks, repo_context)

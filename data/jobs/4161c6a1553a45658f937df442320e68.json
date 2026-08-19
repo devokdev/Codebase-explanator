@@ -1,0 +1,174 @@
+{
+  "job_id": "4161c6a1553a45658f937df442320e68",
+  "kind": "ingest",
+  "status": "completed",
+  "message": "Completed.",
+  "progress": 100,
+  "started_at": 1777154378.0821521,
+  "updated_at": 1777154426.0199707,
+  "result": {
+    "status": "success",
+    "source_root": "C:\\Users\\karta\\Desktop\\GenAIEndTerm\\data\\repos\\EAOS_Simplified",
+    "files_indexed": 31,
+    "chunks_indexed": 153,
+    "repo_summary": "EAOS EAOS is an AI-assisted email operations workspace for teams that send outbound emails, track replies, and want approval-first automation instead of blind autoresponders.",
+    "file_summaries": [
+      {
+        "file_path": "run.py",
+        "language": "python",
+        "summary": "command-line entrypoint"
+      },
+      {
+        "file_path": "backend/config.py",
+        "language": "python",
+        "summary": "configuration helpers"
+      },
+      {
+        "file_path": "backend/database.py",
+        "language": "python",
+        "summary": "database module"
+      },
+      {
+        "file_path": "backend/main.py",
+        "language": "python",
+        "summary": "application entrypoint"
+      },
+      {
+        "file_path": "backend/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "backend/models/campaign.py",
+        "language": "python",
+        "summary": "campaign module"
+      },
+      {
+        "file_path": "backend/models/contact.py",
+        "language": "python",
+        "summary": "contact module"
+      },
+      {
+        "file_path": "backend/models/dataset.py",
+        "language": "python",
+        "summary": "dataset preparation"
+      },
+      {
+        "file_path": "backend/models/email_doc.py",
+        "language": "python",
+        "summary": "email doc"
+      },
+      {
+        "file_path": "backend/models/logbook.py",
+        "language": "python",
+        "summary": "logbook module"
+      },
+      {
+        "file_path": "backend/models/logs.py",
+        "language": "python",
+        "summary": "logs module"
+      },
+      {
+        "file_path": "backend/models/template.py",
+        "language": "python",
+        "summary": "template module"
+      },
+      {
+        "file_path": "backend/models/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "backend/routes/automation.py",
+        "language": "python",
+        "summary": "automation module"
+      },
+      {
+        "file_path": "backend/routes/campaigns.py",
+        "language": "python",
+        "summary": "campaigns module"
+      },
+      {
+        "file_path": "backend/routes/contacts.py",
+        "language": "python",
+        "summary": "contacts module"
+      },
+      {
+        "file_path": "backend/routes/dashboard.py",
+        "language": "python",
+        "summary": "dashboard module"
+      },
+      {
+        "file_path": "backend/routes/dashboard_v2.py",
+        "language": "python",
+        "summary": "dashboard v2"
+      },
+      {
+        "file_path": "backend/routes/datasets.py",
+        "language": "python",
+        "summary": "dataset preparation"
+      },
+      {
+        "file_path": "backend/routes/emails.py",
+        "language": "python",
+        "summary": "emails module"
+      },
+      {
+        "file_path": "backend/routes/logbook.py",
+        "language": "python",
+        "summary": "logbook module"
+      },
+      {
+        "file_path": "backend/routes/templates.py",
+        "language": "python",
+        "summary": "templates module"
+      },
+      {
+        "file_path": "backend/routes/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "backend/services/gemini_service.py",
+        "language": "python",
+        "summary": "gemini service"
+      },
+      {
+        "file_path": "backend/services/gmail_service.py",
+        "language": "python",
+        "summary": "gmail service"
+      },
+      {
+        "file_path": "backend/services/templates_service.py",
+        "language": "python",
+        "summary": "templates service"
+      },
+      {
+        "file_path": "backend/services/__init__.py",
+        "language": "python",
+        "summary": "init module"
+      },
+      {
+        "file_path": "eaos-web/frontend/fix.js",
+        "language": "javascript",
+        "summary": "fix module"
+      },
+      {
+        "file_path": "eaos-web/frontend/fix.mjs",
+        "language": "javascript",
+        "summary": "fix module"
+      },
+      {
+        "file_path": "eaos-web/frontend/postcss.config.mjs",
+        "language": "javascript",
+        "summary": "postcss.config module"
+      },
+      {
+        "file_path": "frontend/vite.config.js",
+        "language": "javascript",
+        "summary": "vite.config module"
+      }
+    ]
+  },
+  "error": null
+}

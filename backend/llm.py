@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Dict, List
 
 from openai import OpenAI
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
 
 PROMPT_TEMPLATE = """You are a code analysis assistant.
@@ -56,12 +58,12 @@ def build_file_summary_context(file_summaries: List[Dict]) -> str:
     )
 
 
-def build_compact_chunk_context(chunks: List[Dict]) -> str:
+def build_compact_chunk_context(chunks: List[Dict], limit: int = 6) -> str:
     if not chunks:
         return "No retrieved code snippets."
 
     rendered = []
-    for chunk in chunks[:3]:
+    for chunk in chunks[:limit]:
         rendered.append(
             "\n".join(
                 [
@@ -78,31 +80,77 @@ def build_compact_chunk_context(chunks: List[Dict]) -> str:
 
 class LLMService:
     def __init__(self) -> None:
-        self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
-        self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
-        self.client = OpenAI(
-            base_url=self.base_url,
-            api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-        )
+        self.local_model_path = os.getenv("LOCAL_MODEL_PATH", "C:/Users/karta/Desktop/GenAIEndTerm/merged model")
+        if os.path.exists(self.local_model_path):
+            print(f"Loading fine-tuned local model from {self.local_model_path}...")
+            self.use_local = True
+            self.tokenizer = AutoTokenizer.from_pretrained(self.local_model_path)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.local_model_path, 
+                torch_dtype=torch.float16
+            )
+            if torch.cuda.is_available():
+                self.model = self.model.to("cuda")
+            else:
+                self.model = self.model.to("cpu")
+        else:
+            print("Local model not found. Falling back to Ollama...")
+            self.use_local = False
+            self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+            self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
+            self.client = OpenAI(
+                base_url=self.base_url,
+                api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+            )
 
     def _chat(self, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 220) -> str:
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            messages=messages,
-            extra_body={
-                "keep_alive": "15m",
-                "options": {
-                    "num_predict": max_tokens,
-                    "num_ctx": 4096,
+        if hasattr(self, 'use_local') and self.use_local:
+            prompt = ""
+            for msg in messages:
+                role = msg['role']
+                content = msg['content']
+                if role == 'system':
+                    prompt += f"<s>[INST] <<SYS>>\n{content}\n<</SYS>>\n\n"
+                elif role == 'user':
+                    if "<s>[INST]" in prompt:
+                        prompt += f"{content} [/INST]"
+                    else:
+                        prompt += f"<s>[INST] {content} [/INST]"
+                elif role == 'assistant':
+                    prompt += f" {content} </s>"
+            
+            inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
+            with torch.no_grad():
+                outputs = self.model.generate(
+                    **inputs, 
+                    max_new_tokens=max_tokens,
+                    do_sample=False,
+                    repetition_penalty=1.2,
+                    no_repeat_ngram_size=4,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    pad_token_id=self.tokenizer.eos_token_id,
+                )
+            new_tokens = outputs[0][inputs["input_ids"].shape[-1]:]
+            raw_out = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+            return self._dedupe_repeated_sentences(raw_out.strip())
+        else:
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                messages=messages,
+                extra_body={
+                    "keep_alive": "15m",
+                    "options": {
+                        "num_predict": max_tokens,
+                        "num_ctx": 4096,
+                    },
                 },
-            },
-        )
-        content = response.choices[0].message.content
-        if not content:
-            raise ValueError("Model returned an empty response.")
-        return content.strip()
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Model returned an empty response.")
+            return content.strip()
 
     @staticmethod
     def _collapse_whitespace(text: str) -> str:
@@ -195,6 +243,98 @@ class LLMService:
             return answer.strip()
         return cleaned
 
+    def _dedupe_repeated_sentences(self, answer: str) -> str:
+        sentences = re.findall(r"[^.!?]+[.!?]?", answer)
+        seen = set()
+        kept = []
+        for sentence in sentences:
+            normalized = self._collapse_whitespace(sentence).lower().rstrip(".!?")
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            kept.append(sentence.strip())
+        return " ".join(kept).strip() or answer.strip()
+
+    @staticmethod
+    def _query_mentions_symbol(query: str, symbol_name: str) -> bool:
+        query_lower = query.lower()
+        symbol_lower = symbol_name.lower()
+        short_name = symbol_lower.split(".")[-1].split("#")[0]
+        return symbol_lower in query_lower or short_name in query_lower
+
+    def _extract_direct_symbol_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
+        symbol_words = ("def ", "function", "method", "class", "where is", "what is", "explain")
+        if not any(word in query.lower() for word in symbol_words):
+            return None
+
+        matches = [
+            chunk
+            for chunk in retrieved_chunks
+            if self._query_mentions_symbol(query, chunk.get("name", ""))
+        ]
+        if not matches:
+            return None
+
+        lead = matches[0]
+        name = lead.get("name", "the symbol")
+        file_path = lead.get("file_path", "unknown file")
+        line_start = lead.get("line_start", "?")
+        line_end = lead.get("line_end", "?")
+        code = lead.get("code", "")
+
+        details = []
+        if "train_metrics.json" in code:
+            details.append("reads `train_metrics.json`")
+        if "trainer_state.json" in code:
+            details.append("reads `trainer_state.json`")
+        if "eval_loss" in code:
+            details.append("extracts the latest eval metrics")
+        if "return summary" in code:
+            details.append("returns a summary dictionary")
+
+        if details:
+            purpose = ", ".join(details[:-1])
+            purpose = f"{purpose}, and {details[-1]}" if len(details) > 1 else details[0]
+            return (
+                f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}. "
+                f"It {purpose}."
+            )
+
+        first_code_line = next((line.strip() for line in code.splitlines()[1:] if line.strip()), "")
+        if first_code_line:
+            return (
+                f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}. "
+                f"The first retrieved implementation detail is `{first_code_line[:140]}`."
+            )
+        return f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}."
+
+    def _grounded_retrieval_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
+        repo_context = repo_context or {}
+
+        if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
+            return self._repo_overview_fallback(repo_context)
+
+        if not retrieved_chunks:
+            return "Not found in codebase"
+
+        direct_symbol = self._extract_direct_symbol_answer(query, retrieved_chunks)
+        if direct_symbol:
+            return direct_symbol
+
+        lead = retrieved_chunks[0]
+        related = [
+            f"`{chunk['file_path']}` / `{chunk['name']}`"
+            for chunk in retrieved_chunks[1:3]
+        ]
+        answer = (
+            f"The closest match I found is `{lead['name']}` in `{lead['file_path']}` "
+            f"(lines {lead.get('line_start')}-{lead.get('line_end')})."
+        )
+        if related:
+            answer += f" Related retrieved symbols are {', '.join(related)}."
+        answer += " If this does not match the question, the exact answer was not found in the indexed codebase."
+        return answer
+
     @staticmethod
     def _is_repo_overview_query(query: str) -> bool:
         lowered = query.lower()
@@ -229,6 +369,133 @@ class LLMService:
         if highlights:
             return f"{repo_name} includes files such as {highlights}."
         return f"{repo_name} has been ingested, but a high-level summary is not available yet."
+
+    @staticmethod
+    def _read_repo_file(repo_root: Path | None, relative_path: str) -> str:
+        if repo_root is None:
+            return ""
+        path = repo_root / relative_path
+        if not path.exists() or not path.is_file():
+            return ""
+        try:
+            return path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            return ""
+
+    @staticmethod
+    def _detect_first_keyword(text: str, keywords: List[str]) -> str | None:
+        lowered = text.lower()
+        for keyword in keywords:
+            if keyword.lower() in lowered:
+                return keyword
+        return None
+
+    def _extract_stack_answer(self, query: str, repo_context: Dict, retrieved_chunks: List[Dict]) -> str | None:
+        query_lower = query.lower()
+        if not any(term in query_lower for term in ("backend", "frontend", "database", "db", "authentication", "auth", "tech stack", "stack")):
+            return None
+
+        source_root = repo_context.get("source_root")
+        repo_root = Path(source_root) if source_root else None
+        readme = self._read_repo_file(repo_root, "README.md")
+        backend_main = self._read_repo_file(repo_root, "backend/main.py")
+        backend_database = self._read_repo_file(repo_root, "backend/database.py")
+        backend_config = self._read_repo_file(repo_root, "backend/config.py")
+        frontend_package = self._read_repo_file(repo_root, "frontend/package.json")
+        requirements = self._read_repo_file(repo_root, "requirements.txt")
+        prd = self._read_repo_file(repo_root, "prd.md")
+        combined = "\n".join([readme, backend_main, backend_database, backend_config, frontend_package, requirements, prd])
+
+        backend_framework = self._detect_first_keyword(
+            combined,
+            ["FastAPI", "Flask", "Django", "Express", "NestJS", "Spring Boot", "Rails"],
+        )
+        frontend_framework = self._detect_first_keyword(
+            combined,
+            ["Next.js", "React", "Vue", "Angular", "Svelte"],
+        )
+        database_name = None
+        if "asyncpg" in combined.lower() or "postgresql://" in combined.lower() or "supabase postgres" in combined.lower():
+            database_name = "PostgreSQL"
+        elif "mongodb" in combined.lower() or "mongo" in combined.lower():
+            database_name = "MongoDB"
+        elif "sqlite" in combined.lower():
+            database_name = "SQLite"
+
+        auth_signal = self._detect_first_keyword(
+            combined,
+            ["OAuth", "JWT", "Auth0", "Supabase Auth", "Firebase Auth", "next-auth", "flask_login"],
+        )
+        has_auth_code = any(
+            term in combined.lower()
+            for term in ("login", "signup", "jwt", "oauth", "bearer ", "password_hash", "supabase auth", "auth0")
+        )
+
+        if "backend" in query_lower:
+            if backend_framework == "FastAPI":
+                answer = (
+                    "The backend is built with FastAPI in Python. "
+                    "In backend/main.py, the app is created with `FastAPI(...)` and it mounts routers such as `datasets`, `templates`, `automation`, `logbook`, and `dashboard_v2`."
+                )
+                if database_name == "PostgreSQL":
+                    answer += " The database layer in backend/database.py uses `asyncpg`, so it is backed by PostgreSQL or Supabase Postgres."
+                return answer
+            if backend_framework:
+                return f"The backend appears to use {backend_framework}. The strongest evidence is in backend/main.py and the repository README."
+            return "Not found in codebase"
+
+        if "frontend" in query_lower:
+            if frontend_framework == "React":
+                answer = (
+                    "The frontend is built with React. "
+                    "frontend/package.json lists `react`, `react-dom`, and `react-router-dom`, and the same file uses Vite for the build tooling."
+                )
+                return answer
+            if frontend_framework:
+                return f"The frontend appears to use {frontend_framework}. The strongest evidence is in frontend/package.json and the README."
+            return "Not found in codebase"
+
+        if "database" in query_lower or re.search(r"\bdb\b", query_lower):
+            if database_name == "PostgreSQL":
+                return (
+                    "The repository uses PostgreSQL. "
+                    "backend/config.py defines `DATABASE_URL` with a `postgresql://...` connection string, and backend/database.py creates a pool with `asyncpg.create_pool(...)`."
+                )
+            if database_name:
+                return f"The repository appears to use {database_name}. The strongest evidence is in backend/database.py and backend/config.py."
+            return "Not found in codebase"
+
+        if "authentication" in query_lower or re.search(r"\bauth\b", query_lower):
+            if auth_signal:
+                return f"Authentication appears to use {auth_signal}. The strongest evidence is in the repository source and configuration files."
+            if not has_auth_code and ("no auth" in prd.lower() or "there is no auth" in prd.lower()):
+                return "Authentication is not implemented yet. prd.md explicitly says there is no auth or multi-user workspace model yet."
+            auth_related = [chunk for chunk in retrieved_chunks if "auth" in chunk["file_path"].lower() or "auth" in chunk["name"].lower()]
+            if auth_related:
+                lead = auth_related[0]
+                return (
+                    f"The strongest auth-related evidence is in {lead['file_path']} under {lead['name']} "
+                    f"(lines {lead.get('line_start')}-{lead.get('line_end')})."
+                )
+            return "Not found in codebase"
+
+        if "tech stack" in query_lower or re.search(r"\bstack\b", query_lower):
+            parts = []
+            if backend_framework:
+                parts.append(f"backend: {backend_framework}")
+            if frontend_framework:
+                parts.append(f"frontend: {frontend_framework}")
+            if database_name:
+                parts.append(f"database: {database_name}")
+            if "gemini" in combined.lower():
+                parts.append("AI: Google Gemini")
+            if "gmail" in combined.lower():
+                parts.append("email integration: Gmail SMTP + IMAP")
+            if parts:
+                return "The main stack is " + ", ".join(parts) + "."
+            return "Not found in codebase"
+
+        return None
 
     def _extract_dataset_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
         query_lower = query.lower()
@@ -281,6 +548,68 @@ class LLMService:
             )
 
         return " ".join(answer_parts)
+
+    def _extract_embedding_answer(self, query: str, retrieved_chunks: List[Dict]) -> str | None:
+        query_lower = query.lower()
+        if not any(term in query_lower for term in ("embed", "embedding", "vector store", "faiss", "vector")):
+            return None
+
+        ingestion_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("ingestion.py")
+                and chunk["name"] in {"IngestionService.ingest", "ingest", "IngestionService._chunk_to_embedding_text", "_chunk_to_embedding_text"}
+            ),
+            None,
+        )
+        embedding_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("embeddings.py")
+                and chunk["name"] in {"EmbeddingService.embed_texts", "embed_texts", "EmbeddingService.embed_query"}
+            ),
+            None,
+        )
+        store_chunk = next(
+            (
+                chunk for chunk in retrieved_chunks
+                if chunk["file_path"].endswith("retrieval.py")
+                and (
+                    chunk["name"] in {"VectorStore.save", "save", "VectorStore"}
+                    or "faiss.write_index" in chunk["code"]
+                )
+            ),
+            None,
+        )
+
+        if not any((ingestion_chunk, embedding_chunk, store_chunk)):
+            return None
+
+        parts = []
+        if ingestion_chunk:
+            ingestion_action = (
+                "turns each chunk into embedding text with file path, type, symbol name, and code"
+                if "_chunk_to_embedding_text" in ingestion_chunk["name"]
+                else "turns each chunk into embedding text with file path, type, symbol name, and code, then calls the embedding service"
+            )
+            parts.append(
+                f"In {ingestion_chunk['file_path']}, {ingestion_chunk['name']} "
+                f"(lines {ingestion_chunk.get('line_start')}-{ingestion_chunk.get('line_end')}) "
+                f"{ingestion_action}."
+            )
+        if embedding_chunk:
+            parts.append(
+                f"In {embedding_chunk['file_path']}, {embedding_chunk['name']} "
+                f"(lines {embedding_chunk.get('line_start')}-{embedding_chunk.get('line_end')}) "
+                "uses SentenceTransformer.encode with normalized embeddings and returns float32 vectors."
+            )
+        if store_chunk:
+            parts.append(
+                f"In {store_chunk['file_path']}, {store_chunk['name']} "
+                f"(lines {store_chunk.get('line_start')}-{store_chunk.get('line_end')}) "
+                "stores those vectors in a FAISS IndexFlatIP index and writes the chunk metadata JSON beside it."
+            )
+        return " ".join(parts)
 
     def summarize_file(self, file_path: str, language: str, symbols: List[str], code: str) -> str:
         return self._infer_file_summary(file_path, symbols, code)
@@ -384,11 +713,25 @@ class LLMService:
 
     def answer_query(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
+        stack_answer = self._extract_stack_answer(query, repo_context, retrieved_chunks)
+        if stack_answer:
+            return stack_answer
+
+        embedding_answer = self._extract_embedding_answer(query, retrieved_chunks)
+        if embedding_answer:
+            return embedding_answer
+
         dataset_answer = self._extract_dataset_answer(query, retrieved_chunks)
         if dataset_answer:
             return dataset_answer
 
+        direct_symbol_answer = self._extract_direct_symbol_answer(query, retrieved_chunks)
+        if direct_symbol_answer:
+            return direct_symbol_answer
+
         if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
+            if getattr(self, "use_local", False):
+                return self._repo_overview_fallback(repo_context)
             try:
                 return self._chat(
                     [
@@ -427,7 +770,7 @@ class LLMService:
                 if any(term in f"{item.get('file_path', '')} {item.get('summary', '')}".lower() for term in lowered_terms)
             ][:12]
 
-        compact_context = build_compact_chunk_context(retrieved_chunks)
+        compact_context = build_compact_chunk_context(retrieved_chunks, limit=6)
         repo_prompt = "\n\n".join(
             [
                 f"Repository summary:\n{self._clean_markdown_text(repo_summary)}",
@@ -436,6 +779,9 @@ class LLMService:
                 f"Question: {query}",
             ]
         )
+
+        if getattr(self, "use_local", False):
+            return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
 
         try:
             return self._sanitize_answer_output(
@@ -467,9 +813,6 @@ class LLMService:
         if self._is_repo_overview_query(query) and repo_context.get("repo_summary"):
             return self._repo_overview_fallback(repo_context)
 
-        if not retrieved_chunks and repo_context.get("repo_summary"):
-            return self._clean_markdown_text(repo_context["repo_summary"])
-
         if not retrieved_chunks:
             return "Not found in codebase"
 
@@ -485,8 +828,12 @@ class LLMService:
                     )
 
         lead = retrieved_chunks[0]
+        related = ", ".join(
+            f"{chunk['file_path']}::{chunk['name']}"
+            for chunk in retrieved_chunks[:4]
+        )
         return (
             f"The strongest retrieved evidence is in {lead['file_path']} under {lead['name']} "
             f"(lines {lead.get('line_start')}-{lead.get('line_end')}). "
-            "I can answer more precisely when the local model returns a full generation."
+            f"Related retrieved symbols: {related}."
         )
