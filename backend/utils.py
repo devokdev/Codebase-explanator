@@ -87,6 +87,9 @@ def clone_repository(repo_url: str, target_root: Path) -> Path:
         ["git", "clone", repo_url, str(repo_dir)],
     ]
 
+    env = os.environ.copy()
+    env["GIT_TERMINAL_PROMPT"] = "0"
+
     last_error: str | None = None
     for attempt, command in enumerate(clone_commands, start=1):
         try:
@@ -95,6 +98,7 @@ def clone_repository(repo_url: str, target_root: Path) -> Path:
                 check=True,
                 capture_output=True,
                 text=True,
+                env=env,
             )
             return repo_dir
         except subprocess.CalledProcessError as exc:
@@ -103,6 +107,11 @@ def clone_repository(repo_url: str, target_root: Path) -> Path:
 
             if repo_dir.exists():
                 shutil.rmtree(repo_dir, onerror=handle_remove_readonly)
+
+            if "could not read Username" in last_error or "Authentication failed" in last_error or "Repository not found" in last_error:
+                raise RuntimeError(
+                    "Repository not found or is private. Please ensure the repository is public and the URL is spelled correctly."
+                ) from exc
 
             if exc.returncode == 130:
                 logger.error("Git clone was interrupted: %s", last_error)
