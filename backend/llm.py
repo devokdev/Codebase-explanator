@@ -94,14 +94,34 @@ class LLMService:
             else:
                 self.model = self.model.to("cpu")
         else:
-            print("Local model not found. Falling back to Ollama...")
             self.use_local = False
-            self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
-            self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
-            self.client = OpenAI(
-                base_url=self.base_url,
-                api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
-            )
+            # Check for standard cloud LLM providers (Groq, OpenAI, OpenRouter) or local Ollama
+            openai_key = os.getenv("OPENAI_API_KEY")
+            groq_key = os.getenv("GROQ_API_KEY")
+            gemini_key = os.getenv("GEMINI_API_KEY")
+
+            if groq_key:
+                print("Using Groq Cloud LLM API for ultra-fast natural responses...")
+                self.base_url = "https://api.groq.com/openai/v1"
+                self.model_name = os.getenv("LLM_MODEL", "llama-3.1-8b-instant")
+                self.client = OpenAI(base_url=self.base_url, api_key=groq_key)
+            elif openai_key:
+                print("Using OpenAI API for natural responses...")
+                self.base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+                self.model_name = os.getenv("LLM_MODEL", "gpt-4o-mini")
+                self.client = OpenAI(base_url=self.base_url, api_key=openai_key)
+            elif gemini_key:
+                print("Using Google Gemini API for natural responses...")
+                self.base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+                self.model_name = os.getenv("LLM_MODEL", "gemini-1.5-flash")
+                self.client = OpenAI(base_url=self.base_url, api_key=gemini_key)
+            else:
+                self.base_url = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434/v1")
+                self.model_name = os.getenv("OLLAMA_MODEL", "tinyllama")
+                self.client = OpenAI(
+                    base_url=self.base_url,
+                    api_key=os.getenv("OLLAMA_API_KEY", "ollama"),
+                )
 
     def _chat(self, messages: List[Dict[str, str]], temperature: float = 0.2, max_tokens: int = 220) -> str:
         if hasattr(self, 'use_local') and self.use_local:
