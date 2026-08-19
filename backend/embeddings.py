@@ -9,7 +9,6 @@ os.environ.setdefault("TRANSFORMERS_NO_TF", "1")
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 
 MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
@@ -18,17 +17,17 @@ MODEL_NAME = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v
 class EmbeddingService:
     def __init__(self, model_name: str = MODEL_NAME) -> None:
         self.model_name = model_name
-        self._model: SentenceTransformer | None = None
+        self._model = None
         self._cache: Dict[str, np.ndarray] = {}
 
     @property
-    def model(self) -> SentenceTransformer:
+    def model(self):
         if self._model is None:
+            from sentence_transformers import SentenceTransformer
             local_only = os.getenv("EMBEDDING_MODEL_LOCAL_ONLY", "false").lower() not in {"0", "false", "no"}
             try:
                 self._model = SentenceTransformer(self.model_name, local_files_only=local_only)
             except Exception:
-                # Fallback to online download if local files are missing
                 self._model = SentenceTransformer(self.model_name, local_files_only=False)
         return self._model
 
