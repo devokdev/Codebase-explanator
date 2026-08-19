@@ -1,114 +1,147 @@
-# AI-Powered Codebase Understanding with RAG (Fine-Tuned Edition)
+# Codebase Intelligence Engine (AI-Powered Code Understanding & RAG)
 
-This project leverages a customized, locally optimized PEFT (LoRA) weight model architecture paired alongside standard vector stores. 
+[![Tech Stack](https://img.shields.io/badge/Tech-Python%20%7C%20FastAPI%20%7C%20PostgreSQL%20%7C%20FAISS%20%7C%20Docker%20%7C%20React-blue.svg)](#tech-stack)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](#license)
 
-### 🎓 Academic Requirements Mapping
-* **LoRA Framework Execution:** Completed via Small-Scale Transformers deployment schemas.
+An AI-powered repository intelligence platform utilizing semantic code retrieval, FastAPI microservices, and a decoupled PostgreSQL + FAISS metadata architecture.
 
-## Features
+---
 
-- Ingest from GitHub URL or local folder path
-- Parse Python and JavaScript code
-- Extract functions, classes, and methods with line references
-- Chunk large code blocks intelligently
-- Embed code using `sentence-transformers`
-- Store vectors in FAISS and metadata in JSON
-- Query with natural language through a FastAPI API
-- Ground answers with file names, symbol names, and snippets
-- Local Ollama-powered response generation with a safe fallback if the model is unavailable
-- Optional evaluation script to compare retrieval vs no retrieval
+## ⚡ Highlights & Key Metrics
 
-## Project Structure
+* **Tech Stack:** Python 3.11, FastAPI, PostgreSQL (SQLAlchemy), FAISS, Sentence-Transformers, Docker & Docker Compose, React.js (Vite).
+* **Decoupled Hybrid Storage:** Employs in-memory FAISS `IndexFlatIP` vector index for sub-millisecond dense cosine similarity search paired alongside PostgreSQL relational tables for code chunk hydration, AST structure, and query audit logs.
+* **Fine-Tuning & Local LLM Support:** Integrated with a locally quantized / PEFT LoRA model pipeline with seamless Ollama (`tinyllama`) runtime fallback.
+* **Full Multi-Container Orchestration:** Ready-to-deploy multi-service setup encompassing the Frontend, Backend, PostgreSQL database, and Ollama inference engine.
+
+---
+
+## 🏗️ Architecture Overview
 
 ```text
-project-root/
-|
+                                [ User / React Frontend ]
+                                            │
+                                            ▼
+                                [ FastAPI Microservice ]
+                                            │
+                     ┌──────────────────────┴──────────────────────┐
+                     ▼                                             ▼
+          ┌─────────────────────┐                       ┌─────────────────────┐
+          │  FAISS Vector Store │                       │ PostgreSQL Database │
+          │ (Dense Similarity)  │                       │ (Relational Chunks) │
+          └──────────┬──────────┘                       └──────────┬──────────┘
+                     │                                             │
+                     └──────────────────────┬──────────────────────┘
+                                            ▼
+                               [ Grounded Prompt Engine ]
+                                            │
+                                            ▼
+                            [ Local LLM / Ollama Runtime ]
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+Codebase-explanator/
 ├── backend/
-│   ├── __init__.py
-│   ├── main.py
-│   ├── ingestion.py
-│   ├── chunking.py
-│   ├── embeddings.py
-│   ├── retrieval.py
-│   ├── llm.py
-│   ├── utils.py
-│   └── evaluation.py
-|
+│   ├── __init__.py           # Package setup & environment isolation guards
+│   ├── main.py               # FastAPI application & API routing
+│   ├── database.py           # PostgreSQL models (CodeChunkModel, QueryLogModel)
+│   ├── ingestion.py          # Git cloning, AST parsing, chunking, indexing pipeline
+│   ├── chunking.py           # Intelligent code chunking (Python & JS)
+│   ├── embeddings.py         # SentenceTransformer caching & vectorization
+│   ├── retrieval.py          # FAISS vector store & PostgreSQL sync/load
+│   ├── llm.py                # Fine-tuned model inference & Ollama fallback
+│   ├── progress.py           # Ingestion job status store
+│   ├── utils.py              # File system, AST, & JSON helpers
+│   └── evaluation.py         # Retrieval vs No-Retrieval benchmarking
+│
 ├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── vite.config.js
-│   └── src/
-│       ├── App.jsx
-│       ├── main.jsx
-│       └── styles.css
-|
+│   ├── src/
+│   │   ├── App.jsx           # React UI with Ingestion & Chat workflow
+│   │   ├── main.jsx          # React DOM root
+│   │   └── styles.css        # Responsive styling & status indicators
+│   ├── package.json          # Frontend dependencies
+│   └── vite.config.js        # Vite build & host configuration
+│
 ├── data/
-│   ├── faiss_index/
-│   ├── metadata.json
-│   └── repos/
-|
-├── requirements.txt
-├── .env.example
+│   ├── faiss_index/          # Persisted FAISS vector index
+│   └── repos/                # Ingested repository cache
+│
+├── Dockerfile.backend        # FastAPI containerization
+├── Dockerfile.frontend       # Multi-stage Nginx React containerization
+├── docker-compose.yml        # PostgreSQL, Ollama, Backend, & Frontend orchestration
+├── requirements.txt          # Python dependencies
 └── README.md
 ```
 
-## Setup
+---
 
-### 1. Backend
+## 🚀 Quickstart
+
+### Method 1: Docker (Recommended)
+
+Run the entire platform (PostgreSQL, Ollama, Backend, and Frontend) with one command:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-copy .env.example .env
-uvicorn backend.main:app --reload
+# 1. Start all containers
+docker compose up --build -d
+
+# 2. Pull the default model inside the Ollama container (first time only)
+docker compose exec ollama ollama pull tinyllama
 ```
 
-The API will start at `http://127.0.0.1:8000`.
+* **Frontend Web App:** [http://localhost:5173](http://localhost:5173)
+* **FastAPI Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **PostgreSQL:** `localhost:5432` (`user: postgres`, `password: postgrespassword`, `db: codebase_rag`)
 
-Before starting the backend, make sure Ollama is running locally and the configured model is installed:
+---
 
+### Method 2: Local Python & Node Environment
+
+#### 1. Start Ollama
 ```bash
 ollama pull tinyllama
 ollama serve
 ```
 
-### 2. Frontend
+#### 2. Start Backend
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate   # On Windows (or 'source .venv/bin/activate' on Unix)
 
+# Install dependencies
+pip install -r requirements.txt
+
+# Start FastAPI server
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+```
+
+#### 3. Start Frontend
 ```bash
 cd frontend
 npm install
-copy .env.example .env
 npm run dev
 ```
 
-The frontend will start at `http://127.0.0.1:5173`.
+---
 
-## API Usage
+## 🔌 API Endpoints
 
-### Ingest a repository
-
-`POST /ingest`
-
+### 1. Ingest a Codebase
+`POST /ingest` or `POST /ingest/start`
 ```json
 {
   "source": "https://github.com/tiangolo/fastapi"
 }
 ```
+*Supports both GitHub URLs and local absolute directory paths.*
 
-Or:
-
-```json
-{
-  "source": "C:/Users/yourname/projects/my-repo"
-}
-```
-
-### Query the codebase
-
+### 2. Query Repository
 `POST /query`
-
 ```json
 {
   "query": "Where is the authentication logic implemented?",
@@ -116,11 +149,10 @@ Or:
 }
 ```
 
-Example response:
-
+**Example Response:**
 ```json
 {
-  "answer": "Authentication appears in app/security.py within the AuthService.login method...",
+  "answer": "Authentication is implemented in app/security.py within the AuthService.login method...",
   "relevant_files": [
     "app/security.py",
     "app/routes/auth.py"
@@ -132,66 +164,27 @@ Example response:
       "type": "method",
       "line_start": 18,
       "line_end": 42,
-      "code": "def login(self, username, password): ..."
+      "code": "def login(self, username, password): ...",
+      "score": 3.42
     }
-  ]
+  ],
+  "repo_summary": "High-level summary of the codebase architecture..."
 }
 ```
 
-## Prompt Template
+---
 
-The backend uses this exact prompt template when calling the LLM:
+## 🧠 Fine-Tuning Dataset & Benchmarking
 
-```text
-You are a code analysis assistant.
+To optimize procedural diagnostic explanations, the platform utilizes specialized fine-tuning pairs:
+* **Dataset source:** Derived from academic `code-rag-bench/stackoverflow-posts` benchmark mappings.
+* **Volume:** 2,000 paired software queries and step-by-step diagnostic walkthroughs.
+* **Evaluation Benchmark:** Compare retrieval-backed answers against non-retrieval baseline:
+  ```bash
+  python -m backend.evaluation --source "https://github.com/tiangolo/fastapi" --query "How are routes registered?"
+  ```
 
-Context:
-{retrieved_code_chunks}
+---
 
-User Query:
-{query}
-
-Instructions:
-
-* Explain clearly
-* Mention file names
-* Mention function/class names
-* If unsure, say 'Not found in codebase'
-
-Answer:
-```
-
-## Evaluation
- 
- You can compare retrieval-backed answers against empty-context answers:
- 
- ```bash
- python -m backend.evaluation --source "https://github.com/tiangolo/fastapi" --query "How are routes registered?"
- ```
-
-## Fine-Tuning Dataset
-
-To optimize localized diagnostic generation, the platform uses a dedicated training dataset.
-
-- **Source:** Extracted dynamically from the academic `code-rag-bench/stackoverflow-posts` benchmark mappings.
-- **Volume:** 2,000 independent software query parameters.
-- **Role:** Instructs general foundational models (`tinyllama`) to bypass generic summaries in favor of full procedural code walkthroughs.
-
-### Data Format Snapshot
-```json
-{
-  "prompt": "You are a code analysis assistant.\n\nContext:\n\n\nUser Query:\nHow to convert Decimal to Double in C#?...",
-  "completion": "Opacity requires a double, not a decimal value...",
-  "meta": {
-    "source": "CodeRAG-StackOverflow"
-  }
-}
-```
-
-## Notes
-
-- Supported languages today: Python and JavaScript
-- Vector store is written to `data/faiss_index/code.index`
-- Metadata is written to `data/metadata.json`
-- GitHub repository cloning requires `git` to be installed
-- If Ollama is not running or the configured model is unavailable, the app still runs with a grounded fallback answer generator
+## 📄 License
+This project is open-source under the MIT License.
