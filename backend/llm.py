@@ -5,8 +5,6 @@ from pathlib import Path
 from typing import Dict, List
 
 from openai import OpenAI
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
 
 
 PROMPT_TEMPLATE = """You are a code analysis assistant.
@@ -83,6 +81,8 @@ class LLMService:
         self.local_model_path = os.getenv("LOCAL_MODEL_PATH", "C:/Users/karta/Desktop/GenAIEndTerm/merged model")
         if os.path.exists(self.local_model_path):
             print(f"Loading fine-tuned local model from {self.local_model_path}...")
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            import torch
             self.use_local = True
             self.tokenizer = AutoTokenizer.from_pretrained(self.local_model_path)
             self.model = AutoModelForCausalLM.from_pretrained(
