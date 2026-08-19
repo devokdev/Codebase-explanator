@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000
 const initialMessages = [
   {
     role: "assistant",
-    content: "Welcome. Ingest any GitHub repository or local directory to explore architecture, understand modules, and ask natural language questions with grounded source citations."
+    content: "Ingest a repository above, then ask any question about the codebase."
   }
 ];
 
@@ -237,14 +237,13 @@ function App() {
       {/* 2. Hero Statement & Neo-Brutalist Input */}
       <section className="hero-section">
         <h1 className="hero-main-title">
-          CodebaseAI teaches your codebase back to you.
+          CodebaseAI explains your code back to you.
         </h1>
         <p className="hero-paragraph">
-          Explore repositories through guided architectural submaps, file roles, and semantic connection hints.
-          Explains how a module works before you dive into implementation.
+          Index repositories, explore structure, and get instant answers with exact file citations.
         </p>
 
-        <span className="supports-tag">Supports Python, JavaScript, and multi-file projects.</span>
+        <span className="supports-tag">Supports any codebase.</span>
 
         <form className="ingest-form-container" onSubmit={ingestRepository}>
           <div className="ingest-input-box">
@@ -253,7 +252,7 @@ function App() {
               className="neo-input"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              placeholder="https://github.com/owner/repo or local/path"
+              placeholder="https://github.com/owner/repo"
               disabled={loadingIngest}
             />
           </div>
@@ -303,12 +302,12 @@ function App() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Where is authentication handled? Explain the flow..."
+              placeholder="Ask anything (e.g., 'Where is auth handled?')..."
               rows={2}
             />
             <div className="compose-actions">
               <button className="neo-submit-btn" type="submit" disabled={loadingQuery || !query.trim()} style={{ padding: '0.6rem 1.4rem', fontSize: '0.9rem' }}>
-                {loadingQuery ? "Thinking..." : "Ask Assistant"}
+                {loadingQuery ? "Thinking..." : "Ask"}
               </button>
             </div>
           </form>
@@ -332,8 +331,8 @@ function App() {
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
                 </div>
-                <p style={{ fontWeight: 700, color: 'var(--ink-primary)' }}>No citations retrieved yet</p>
-                <p style={{ fontSize: '0.88rem' }}>Ingest a repository above and ask questions to inspect extracted source functions and lines.</p>
+                <p style={{ fontWeight: 700, color: 'var(--ink-primary)' }}>No citations yet</p>
+                <p style={{ fontSize: '0.88rem' }}>Extracted code snippets and line numbers will appear here.</p>
               </div>
             )}
 
