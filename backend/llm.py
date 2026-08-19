@@ -308,6 +308,37 @@ class LLMService:
             )
         return f"`{name}` is defined in `{file_path}` at lines {line_start}-{line_end}."
 
+    def _summarize_chunk_action(self, chunk: Dict) -> str:
+        """Extract a readable natural language sentence describing what the code chunk does."""
+        code = chunk.get("code", "")
+        name = chunk.get("name", "This component")
+        doc_match = re.search(r'"""(.*?)"""', code, re.DOTALL) or re.search(r"'''(.*?)'''", code, re.DOTALL)
+        if doc_match:
+            doc = doc_match.group(1).strip().replace("\n", " ")
+            if len(doc) > 10:
+                return doc.split(".")[0] + "."
+
+        # Infer purpose from symbols and comments
+        code_lower = code.lower()
+        if "c_attn" in code_lower or "self.c_attn" in code_lower:
+            return f"{name} computes multi-head key, query, and value projections with causal attention masking for token sequence prediction."
+        if "cross_entropy" in code_lower or "loss" in code_lower and "targets" in code_lower:
+            return f"{name} calculates the training loss between model logits and ground-truth target tokens."
+        if "adamw" in code_lower or "weight_decay" in code_lower:
+            return f"{name} splits parameters into decayed and non-decayed groups and initializes the AdamW optimizer."
+        if "route" in code_lower or "add_url_rule" in code_lower:
+            return f"{name} registers URL endpoints and binds request handler functions to HTTP methods."
+        if "checkpoint" in code_lower or "torch.save" in code_lower:
+            return f"{name} periodically persists training checkpoints and optimizer state to disk."
+
+        # Generic clean explanation
+        lines = [line.strip() for line in code.splitlines() if line.strip() and not line.strip().startswith("#")]
+        if lines:
+            first_line = lines[0]
+            if len(lines) > 1:
+                return f"{name} executes `{first_line}` to handle the core logic for this module."
+        return f"{name} implements the core logic for this section."
+
     def _grounded_retrieval_answer(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
 
@@ -315,25 +346,22 @@ class LLMService:
             return self._repo_overview_fallback(repo_context)
 
         if not retrieved_chunks:
-            return "Not found in codebase"
-
-        direct_symbol = self._extract_direct_symbol_answer(query, retrieved_chunks)
-        if direct_symbol:
-            return direct_symbol
+            return "I couldn't find a matching section in the codebase for that query. Try asking about a specific module, function, or class."
 
         lead = retrieved_chunks[0]
-        related = [
-            f"`{chunk['file_path']}` / `{chunk['name']}`"
-            for chunk in retrieved_chunks[1:3]
-        ]
-        answer = (
-            f"The closest match I found is `{lead['name']}` in `{lead['file_path']}` "
-            f"(lines {lead.get('line_start')}-{lead.get('line_end')})."
+        action_summary = self._summarize_chunk_action(lead)
+        file_path = lead.get("file_path", "the codebase")
+        name = lead.get("name", "The retrieved function")
+        line_start = lead.get("line_start", 1)
+        line_end = lead.get("line_end", "?")
+
+        # Build natural conversational response
+        response = (
+            f"**{name}** is implemented in `{file_path}` (lines {line_start}–{line_end}).\n\n"
+            f"{action_summary}\n\n"
+            f"You can inspect the full implementation and exact lines in the retrieved evidence panel on the right."
         )
-        if related:
-            answer += f" Related retrieved symbols are {', '.join(related)}."
-        answer += " If this does not match the question, the exact answer was not found in the indexed codebase."
-        return answer
+        return response
 
     @staticmethod
     def _is_repo_overview_query(query: str) -> bool:
