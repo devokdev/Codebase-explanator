@@ -885,7 +885,6 @@ class LLMService:
     def answer_query(self, query: str, retrieved_chunks: List[Dict], repo_context: Dict | None = None) -> str:
         repo_context = repo_context or {}
         repo_summary = repo_context.get("repo_summary", "No summary available.")
-        file_summaries = repo_context.get("file_summaries", [])
         
         # Build clean retrieved context
         chunk_snippets = []
@@ -896,12 +895,11 @@ class LLMService:
         context_block = "\n\n---\n\n".join(chunk_snippets) if chunk_snippets else "No specific code chunks retrieved."
         
         system_prompt = (
-            "You are CodebaseAI, an intelligent, helpful code intelligence assistant. "
-            "Your task is to answer the user's question naturally, accurately, and conversationally. "
-            "Use the provided codebase context and evidence when answering technical questions. "
-            "If the user says casual remarks or general greetings (like 'cool', 'hello', 'thanks'), respond conversationally in a friendly manner. "
-            "When explaining code, explain what it does in clear English, mention relevant file paths and functions, and give insightful explanations. "
-            "Do not start your answer with labels like 'ASSISTANT:' or 'Answer:'."
+            "You are CodebaseAI, an intelligent software assistant. "
+            "Your goal is to answer the user's question about the codebase in a natural, conversational, and comprehensive way. "
+            "Explain concepts clearly in plain English. Reference key files, classes, and workflows when relevant. "
+            "If the user asks high-level questions like 'where to start with the project' or 'how is it deployed', give structured step-by-step guidance based on the codebase. "
+            "Never reply with raw boilerplate templates."
         )
 
         user_content = (
@@ -911,15 +909,22 @@ class LLMService:
         )
 
         try:
-            raw_response = self._chat(
-                [
+            client, model_name = self._get_client()
+            response = client.chat.completions.create(
+                model=model_name,
+                messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_content},
                 ],
                 temperature=0.3,
-                max_tokens=350,
+                max_tokens=450,
             )
-            return self._sanitize_answer_output(raw_response)
+            raw_text = response.choices[0].message.content
+            if raw_text and len(raw_text.strip()) > 5:
+                return self._sanitize_answer_output(raw_text)
         except Exception as e:
-            print(f"LLM generation failed: {e}")
-            return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
+            print(f"[GROQ/LLM API ERROR]: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+
+        return self._grounded_retrieval_answer(query, retrieved_chunks, repo_context)
