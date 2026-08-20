@@ -82,7 +82,16 @@ class IngestStartResponse(BaseModel):
 
 @app.get("/health")
 def health_check() -> Dict[str, str]:
-    return {"status": "ok"}
+    groq_k = bool(os.getenv("GROQ_API_KEY"))
+    openai_k = bool(os.getenv("OPENAI_API_KEY"))
+    gemini_k = bool(os.getenv("GEMINI_API_KEY"))
+    provider = "groq" if groq_k else "openai" if openai_k else "gemini" if gemini_k else "fallback/ollama"
+    return {
+        "status": "ok",
+        "provider": provider,
+        "groq_configured": str(groq_k),
+        "openai_configured": str(openai_k),
+    }
 
 
 @app.post("/ingest")
